@@ -1,527 +1,225 @@
-> [!NOTE]  
-> Due to a long-term health condition (post-COVID since almost three years), I am unable to continue developing this project. Although many amazing contributors have helped over the years, I am unsure when I will be able to resume work. This is my most popular project (over 300 stars!), and I hope others will continue to improve the client and library for various use cases, such as Home Assistant integration. Thank you for your understanding and support.
-
-<br/>
 <p align="center">
-  <a href="https://github.com/derkalle4/python3-idotmatrix-client">
-    <img src="images/logo.png" alt="Logo" width="250" height="250">
-  </a>
-
-  <h3 align="center">Pixel Display Client</h3>
-
-  <p align="center">
-    control all your 16x16 or 32x32 pixel displays
-    <br/>
-    <br/>
-    <a href="https://github.com/derkalle4/python3-idotmatrix-client"><strong>Explore the docs »</strong></a>
-    <br/>
-    <br/>
-    <a href="https://github.com/derkalle4/python3-idotmatrix-client/issues">Report Bug</a>
-    .
-    <a href="https://github.com/derkalle4/python3-idotmatrix-client/issues">Request Feature</a>
-  </p>
+  <img src="images/logo.png" alt="iDotMatrix Studio Pro Logo" width="220" height="220">
 </p>
 
-![Downloads](https://img.shields.io/github/downloads/derkalle4/python3-idotmatrix-client/total) ![Contributors](https://img.shields.io/github/contributors/derkalle4/python3-idotmatrix-client?color=dark-green) ![Forks](https://img.shields.io/github/forks/derkalle4/python3-idotmatrix-client?style=social) ![Stargazers](https://img.shields.io/github/stars/derkalle4/python3-idotmatrix-client?style=social) ![Issues](https://img.shields.io/github/issues/derkalle4/python3-idotmatrix-client) ![License](https://img.shields.io/github/license/derkalle4/python3-idotmatrix-client) 
+<h1 align="center">iDotMatrix Studio Pro & Client</h1>
 
-## Table Of Contents
+<p align="center">
+  <strong>A suíte definitiva e moderna para controle de telas pixel art Bluetooth (16x16 e 32x32).</strong><br/>
+  Totalmente reconstruída com arquitetura assíncrona, monitoramento de PC em tempo real, estúdio DIY de animação, cliente nativo Windows e muito mais.
+</p>
 
-* [About the Project](#about-the-project)
-* [Built With](#built-with)
-* [Getting Started](#getting-started)
-  * [Prerequisites](#prerequisites)
-  * [Installation](#installation)
-* [Usage](#usage)
-* [Gif Compilations](#gif-compilations)
-* [GUI](#gui)
-* [Troubleshooting](#troubleshooting)
-* [Roadmap](#roadmap)
-* [Contributing](#contributing)
-* [License](#license)
-* [Authors](#authors)
-* [Acknowledgements](#acknowledgements)
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat&logo=python&logoColor=white" alt="Python 3.10+"/>
+  <img src="https://img.shields.io/badge/.NET-8.0%20WPF-512BD4?style=flat&logo=dotnet&logoColor=white" alt=".NET 8"/>
+  <img src="https://img.shields.io/badge/Interface-PyQt5%20Modern%20Dark-21262d?style=flat" alt="Modern UI"/>
+  <img src="https://img.shields.io/badge/Bluetooth-BLE%20Persistent-0078D7?style=flat&logo=bluetooth&logoColor=white" alt="Bluetooth LE"/>
+  <img src="https://img.shields.io/badge/License-GPL--3.0-green.svg" alt="License GPLv3"/>
+</p>
 
-## About The Project
+---
 
-This repository aims to reverse engineer the [iDotMatrix](https://play.google.com/store/apps/details?id=com.tech.idotmatrix&pli=1) Android App for pixel screen displays like [this one on Aliexpress](https://de.aliexpress.com/item/1005006105517779.html). The goal is to be able to control multiple pixel screen displays via a GUI, an Rest API and the command line.
+## 🚀 Sobre a Nova Versão
 
-The initial reason for this project was to have a foundation to update one or multiple pixel displays during live streams on Twitch or other platforms where one can use this to further automate interactions with the audience. Please let us know if you're using this to do so :)
+A aplicação foi **completamente reconstruída e modernizada**! O que antes era um conjunto de scripts com chamadas de console avulsas e lentas agora se tornou um **estúdio completo, ágil e visualmente deslumbrante** para gerenciar matrizes de LED iDotMatrix (16x16 e 32x32).
 
-## Built With
+### ✨ O que foi feito e melhorado?
 
-* [Python 3](https://www.python.org/downloads/)
-* [iDotMatrix Library](https://github.com/derkalle4/python3-idotmatrix-library)
-* [argparse](https://docs.python.org/3/library/argparse.html)
-* [asyncio](https://docs.python.org/3/library/asyncio.html)
-* [bleak](https://github.com/hbldh/bleak)
-* [pillow](https://python-pillow.org)
-* [PyQt5](https://pypi.org/project/PyQt5/)
-* [pyinstaller](https://pyinstaller.org)
+1. **Conexão BLE Persistente e Instantânea (`core/ble_controller.py`)**:
+   - **Antes:** Cada ação abria um novo subprocesso de linha de comando (`QProcess`), iniciava uma conexão Bluetooth do zero, transmitia o comando e desconectava. Isso demorava vários segundos e causava lentidão ou travamentos.
+   - **Agora:** Uma arquitetura assíncrona desacoplada em `QThread` com loop `asyncio` exclusivo mantém a conexão GATT aberta continuamente. As respostas agora são **instantâneas**, permitindo fluxos contínuos de streaming com baixa latência.
 
-## Getting Started
+2. **Monitor de Hardware do PC em Tempo Real (`core/hardware_monitor.py`)**:
+   - Transmissão ao vivo de métricas do computador direto para o painel LED 32x32:
+     - **CPU**: porcentagem de uso e temperatura (°C).
+     - **GPU**: suporte a placas NVIDIA via `nvidia-smi` em processo oculto (utilização e temperatura).
+     - **RAM**: porcentagem e quantidade utilizada/total.
+   - **Fonte Bitmap 3x5 Pixel-Perfect:** Desenvolvida especificamente para a matriz de 32x32, garantindo máxima legibilidade sem borrões de interpolação.
+   - Barras de nível com código de cores inteligente (Ciano, Verde Esmeralda, Roxo Neon e alerta Vermelho).
 
-To get a local copy up and running follow these simple example steps:
+3. **Previsão do Tempo Integrada (`core/weather_service.py`)**:
+   - Consulta meteorológica automática (por geolocalização IP) ou personalizada por nome de cidade.
+   - Geração de cards temáticos em pixel art 32x32 (Sol, Nuvens, Chuva, Tempestade com raios, Neve).
+   - Alertas e mensagens de bem-estar/saúde com base na temperatura atual.
 
-### Prerequisites
+4. **Estúdio DIY de Pixel Art & Animações (`gui.py`)**:
+   - Grade interativa de desenho em tempo real com zoom ajustável e suporte a tamanhos 16x16 e 32x32.
+   - Ferramentas completas: Lápis, Borracha, Balde de Tinta (*Flood Fill*), Conta-gotas (*Color Picker*), Espelhar Horizontal e Vertical.
+   - **Animações Frame a Frame:** Criação de múltiplos quadros, gerenciamento da linha do tempo (adicionar, clonar, remover, navegar), pré-visualização animada e envio direto para o display.
 
-Please install the following for your OS:
+5. **Galeria de Presets & Modo Carrossel / Playlist (`core/presets.py`)**:
+   - Presets embutidos em pixel art prontos para uso (Coração Neon, Super Cogumelo, Space Invader, Neon Skull, Café & Foco).
+   - Conversor inteligente de imagens e GIFs com redimensionamento, ajuste de contraste e centralização automática.
+   - Modo **Carrossel** para alternar imagens e artes automaticamente na tela com temporizador configurável.
 
-* Latest version of Python (Python3)
+6. **Áudio, Equalizador e Ambientes de Relaxamento**:
+   - Simulação de visualizador de espectro sonoro com barras de equalização em degradê neon.
+   - Padrões visuais dinâmicos para momentos de foco e descanso (Fogueira aconchegante animada e Ondas do oceano sob a luz do luar).
 
+7. **Games Retrô & Utilitários Interativos**:
+   - **Jogo da Cobrinha (Snake):** Motor completo do clássico Snake renderizado diretamente no display de LED, controlável em tempo real.
+   - **Placar de Jogos:** Placar para competições e partidas com botões de incremento/decremento rápidos.
+   - **Cronômetro e Contagem Regressiva.**
+   - **Simulador de Notificações:** Emissão de ícones de alerta fiéis para WhatsApp, Instagram, Discord, Email e Chamada Telefônica.
 
+8. **Novo Aplicativo Nativo Windows em C# / .NET 8 WPF (`iDotMatrixPro`)**:
+   - Foi desenvolvido um cliente nativo completo em **C# WPF com Material Design**.
+   - Conexão BLE direta através das APIs nativas do Windows (`Windows.Devices.Bluetooth`), sem necessidade de instalar dependências Python.
+   - Suporte à bandeja do sistema (*System Tray*), inicialização com o Windows e streaming contínuo de status.
 
-### Installation
+9. **Launcher Automático no Windows (`start_gui.bat`)**:
+   - Detecta e cria automaticamente o ambiente virtual isolado (`venv_windows`).
+   - Instala e atualiza as dependências do `requirements.txt` sem necessidade de configurações manuais.
 
-#### For Linux or MSYS2/Git Bash
+---
 
-1. Clone the repo
+## 🖥️ As Telas do Novo iDotMatrix Studio Pro (`gui.py`)
 
-```sh
-git clone https://github.com/derkalle4/python3-idotmatrix-client.git
+A interface foi desenhada com tema escuro moderno (*Dark Theme / Glassmorphic*) e dividida em abas focadas em produtividade e entretenimento:
+
+| Aba | Descrição |
+| :--- | :--- |
+| **⚡ Início & Hardware** | Dashboard com status da conexão BLE, controle rápido de liga/desliga, controle deslizante de brilho e transmissão do monitor de hardware do PC (CPU, GPU, RAM, temps). |
+| **🕒 Relógio & Clima** | Seletor com 8 estilos de mostradores (Digital, Natal Festivo, Velocímetro Racing, Alto Contraste, Ampulheta, Neon, Sci-Fi e Arcade), formato 12/24h e card de previsão do tempo ao vivo. |
+| **🎨 Estúdio DIY & Animação** | Editor de desenho pixel por pixel, gerenciador de paletas de cores, clonagem de frames e gravação de animações multi-quadros. |
+| **🖼️ Galeria & Playlists** | Biblioteca de pixel art pré-montada, importação de PNG/JPEG/GIF do computador e modo carrossel contínuo. |
+| **✍️ Letreiro de Texto** | Envio de mensagens personalizadas com rolagem (*marquee*), ajuste de velocidade, paleta de cores para texto e plano de fundo. |
+| **🎵 Áudio & Relaxamento** | Equalizador animado em tempo real e cenas de ambiência para foco ou descanso (Fogueira e Mar Noturno). |
+| **🎮 Games & Utilitários** | Jogo Snake jogável na matriz, placar de pontuação, cronômetro e envio de badges de notificações de apps. |
+
+---
+
+## 📦 Estrutura do Projeto
+
+```plaintext
+python3-idotmatrix-client/
+├── core/                        # Núcleo modular da aplicação
+│   ├── ble_controller.py        # Controlador Bluetooth BLE persistente (QThread + Asyncio)
+│   ├── hardware_monitor.py      # Monitor de CPU/GPU/RAM e renderizador de matriz 32x32
+│   ├── weather_service.py       # Serviço meteorológico e gerador de cards pixel art
+│   ├── presets.py               # Estilos de relógio, pixel arts, motor do Snake e animações
+│   └── cmd.py                   # Interface e comandos via linha de comando
+│
+├── iDotMatrixPro/               # Cliente nativo Windows WPF (.NET 8)
+│   ├── MainWindow.xaml          # Interface rica em Material Design
+│   ├── Services/                # Serviços de Bluetooth nativo WinRT, Tray e Hardware
+│   └── publish/                 # Executável compilado pronto para uso
+│
+├── gui.py                       # Nova interface gráfica principal (PyQt5 Studio Pro)
+├── gui_legacy.py                # Interface gráfica legada preservada para referência
+├── app.py                       # Ponto de entrada para automação e CLI
+├── start_gui.bat                # Inicializador automatizado com auto-instalação para Windows
+├── requirements.txt             # Dependências Python atualizadas
+└── fonts/                       # Fontes bitmap e tipografias compatíveis
 ```
 
-2. `cd` to it
+---
 
-```sh
+## 🔧 Como Executar
+
+### Opção 1: Executar a Nova Interface Python (Recomendado)
+
+#### No Windows:
+Basta dar um duplo clique no arquivo **`start_gui.bat`**.  
+O script irá:
+1. Criar o ambiente virtual `venv_windows` se ainda não existir.
+2. Instalar as dependências necessárias automaticamente.
+3. Iniciar o **iDotMatrix Studio Pro**.
+
+#### Manualmente via Terminal (Linux, macOS ou Windows):
+```bash
+# 1. Clone o repositório ou acesse a pasta do projeto
 cd python3-idotmatrix-client
+
+# 2. Crie e ative o ambiente virtual
+python -m venv venv
+# No Windows:
+venv\Scripts\activate
+# No Linux/macOS:
+source venv/bin/activate
+
+# 3. Instale as dependências
+pip install -r requirements.txt
+
+# 4. Inicie o estúdio
+python gui.py
 ```
 
-3. Create virtual environment and install all dependencies
-    
-```sh
-./create_venv.sh
+---
+
+### Opção 2: Cliente Nativo Windows .NET 8 (`iDotMatrixPro`)
+
+Se preferir utilizar o cliente nativo compilado em C# para Windows:
+1. Acesse o diretório `iDotMatrixPro/publish/`.
+2. Execute **`iDotMatrixPro.exe`**.
+3. O aplicativo integra-se com a área de notificação do Windows (*System Tray*) e usa a pilha Bluetooth nativa do sistema.
+
+---
+
+### Opção 3: Modo Linha de Comando (CLI / Automações)
+
+A interface por linha de comando continua totalmente suportada para automações, integrações com Home Assistant, scripts ou lives de streaming:
+
+```bash
+# Escanear displays próximos:
+python app.py --scan
+
+# Ligar/Desligar a tela:
+python app.py --address "SEU_MAC_ADDRESS" --screen on
+python app.py --address "SEU_MAC_ADDRESS" --screen off
+
+# Ajustar brilho (1 a 100):
+python app.py --address "SEU_MAC_ADDRESS" --brightness 75
+
+# Definir modo relógio:
+python app.py --address "SEU_MAC_ADDRESS" --clock
+
+# Exibir imagem ou animação:
+python app.py --address "SEU_MAC_ADDRESS" --image "caminho/para/imagem.png"
+python app.py --address "SEU_MAC_ADDRESS" --gif "caminho/para/animacao.gif"
+
+# Exibir texto em rolagem:
+python app.py --address "SEU_MAC_ADDRESS" --text "Ola Mundo" --color "00FFCC"
 ```
 
-#### For windows
+---
 
-1. Download the repository 
+## 🛠️ Tecnologias e Bibliotecas
 
-Either click the green "Code" button in GitHub and clicking "Download ZIP", and extracting this file to a folder, or by using Git:
+- **[Python 3.10+](https://www.python.org/)**
+- **[Bleak](https://github.com/hbldh/bleak):** Comunicação Bluetooth Low Energy assíncrona multiplataforma.
+- **[PyQt5](https://riverbankcomputing.com/software/pyqt/):** Interface rica com suporte a temas modernos e renderização personalizada de widgets.
+- **[Pillow (PIL)](https://python-pillow.org/):** Processamento gráfico, manipulação de pixels e renderização de frames.
+- **[psutil](https://github.com/giampaolo/psutil):** Leitura de métricas e sensores do sistema em tempo real.
+- **[requests](https://requests.readthedocs.io/):** Integrações HTTP com serviços meteorológicos.
+- **[.NET 8 WPF](https://dotnet.microsoft.com/):** Cliente alternativo nativo de alta performance para Windows.
 
-```ps1
-git clone https://github.com/derkalle4/python3-idotmatrix-client.git
-```
+---
 
-2. Install Python
+## 📄 Licença
 
-Go to https://www.python.org/downloads/windows/ and install the latets stable release.
+Este projeto é distribuído sob a licença **GNU General Public License v3.0**. Consulte o arquivo [LICENSE](LICENSE) para obter mais detalhes.
 
+---
 
-3. Open it in Explorer and run "build.ps1"
+## 🏛️ Projeto Original & Créditos
 
-The `build.ps1` script automatically handles setting up the python virtual environment and a shortcut to the GUI. 
+Este software é uma evolução direta construída a partir do projeto pioneiro de engenharia reversa [python3-idotmatrix-client](https://github.com/derkalle4/python3-idotmatrix-client) e da biblioteca [python3-idotmatrix-library](https://github.com/derkalle4/python3-idotmatrix-library). Expressamos nosso enorme respeito e gratidão a todos que iniciaram e contribuíram para tornar possível o controle dessas matrizes de LED fora do aplicativo móvel proprietário.
 
-Open this script by right clicking it, and clicking "Run with PowerShell", or by nagivating to them in a PowerShell terminal and writing "./" followed by its filename.
+### 👥 Fundadores & Autores Originais
 
+* **[Kalle Minkner](https://github.com/derkalle4)** (*derkalle4*) – Idealizador e Criador do Projeto Original.
+* **[Jon-Mailes Graeffe](https://github.com/jmgraeffe)** (*jmgraeffe*) – Co-Fundador e Desenvolvedor.
 
+### 🤝 Contribuintes & Engenharia Reversa
 
+Um agradecimento especial a todos os incríveis desenvolvedores da comunidade open-source cujas pesquisas e contribuições viabilizaram a compreensão dos protocolos BLE do iDotMatrix:
 
+* **[LordRippon](https://github.com/LordRippon)** – Engenharia reversa dos protocolos dos displays.
+* **[8none1](https://github.com/8none1)** – Engenharia reversa dos protocolos e payloads Bluetooth.
+* **[inselberg](https://github.com/inselberg)** – Engenharia reversa dos displays e rotinas gráficas.
+* **[tekka007](https://github.com/tekka007)** – Refatoração do código e aprofundamento na engenharia reversa.
+* **[TheBigWazz](https://github.com/thebigwazz)** – Primeira versão da GUI e ferramenta de busca de dispositivos.
+* **[schorsch3000](https://github.com/schorsch3000)** – Correções pontuais e melhorias de compatibilidade.
+* **[Othneil Drew](https://github.com/othneildrew/Best-README-Template)** – Estrutura base de template de documentação.
 
-
-## Usage
-
-If you used the ./create_venv.sh you should use this command to run the app:
-
-```sh
-./run_in_venv.sh <YOUR_COMMAND_LINE_ARGUMENTS>
-```
-
-If you have manually opened the virtual environment, or are not using a virtual environment, the same can be accomplished with the following:
-
-```sh
-python3 .\app.py <YOUR_COMMAND_LINE_ARGUMENTS>
-```
-
-#### command line arguments
-
-##### -h or --help
-
-Shows you every available command line argument. This will always show the newest args, try it if something from this section doesn't work, in case an argument here is outdated.
-
-##### --address (required for all commands except "scan")
-
-Specifies the address of the pixel display device. Use "auto" to use the first available device (automatically looking for IDM-* devices in range).
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff
-```
-
-##### --scan
-
-Scans all bluetooth devices in range for iDotMatrix devices. Quits afterwards. Cannot be combined with other commands (use --address auto instead).
-
-```sh
-./run_in_venv.sh --scan
-```
-
-##### --sync-time
-
-Sets the time of the device to the current local time.
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --sync-time
-```
-
-###### --set-time
-
-Sets the time of the device to any time you want.
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --sync-time --set-time 18-12-2023-19:10:10
-```
-
-##### --screen
-
-Turns the screen either on or off.
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --screen on
-./run_in_venv.sh --address 00:11:22:33:44:ff --screen off
-```
-
-##### --flip-screen
-
-Rotates the device display by 180 degrees. True to rotate. False to disable rotation.
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --flip-screen true
-```
-
-##### --toggle-screen-freeze
-
-Freezes or unfreezes the screen. Does not seem to work currently.
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --toggle-screen-freeze
-```
-
-##### --chronograph
-
-Sets the mode of the cronograph:
-
-- 0 = reset
-- 1 = (re)start
-- 2 = pause
-- 3 = continue after pause
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --chronograph 0
-```
-
-##### --clock
-
-Sets the mode of the clock:
-
-- 0 = default
-- 1 = christmas
-- 2 = racing
-- 3 = inverted full screen
-- 4 = animated hourglass
-- 5 = frame 1
-- 6 = frame 2
-- 7 = frame 3
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --clock 0
-```
-
-###### --clock-with-date
-
-Shows the date in addition to the time.
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --clock 0 --clock-with-date
-```
-
-###### --clock-24h
-
-Shows the time in 24h format.
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --clock 0 --clock-24h
-```
-
-###### --clock-color
-
-Sets the color of the clock in format <R0-255>-<G0-255>-<B0-255>
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --clock 0 --clock-color 255-0-0
-```
-
-##### --countdown
-
-Sets the mode of the countdown:
-
-- 0 = disable
-- 1 = start
-- 2 = pause
-- 3 = restart
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --countdown 1
-```
-
-###### --countdown-time
-
-Sets the time of the countdown in format <MINUTES>-<SECONDS>
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --countdown 1 --countdown-time 5-0
-```
-
-##### --fullscreen-color
-
-Sets all pixels to the given color in format <R0-255>-<G0-255>-<B0-255>
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --fullscreen-color 255-255-255
-```
-
-##### --pixel-color
-
-Sets one or multiple pixels to the given color in format <PIXEL-X>-<PIXEL-Y>-<R0-255>-<G0-255>-<B0-255>
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --pixel-color 10-10-255-255-255
-```
-
-##### --scoreboard
-
-Sets the score of the scoreboard <0-999>-<0-999>
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --scoreboard 21-12
-```
-
-##### --image
-
-Wether to enable the image display mode or not. Set to true show an image or false to hide.
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --image true
-```
-
-###### --set-image
-
-Path to an image to display on the device without further processing. This must match your display pixel size (e.g. demo_16.png for the 16x16 variant). See --process-image for more information on how to process a larger (or smaller) image!
-
-If you do not want to process the image: when using Gimp I had to export the file to a 32x32 pixel PNG (for my 32x32 Pixel Display) and disable all features except the "save resolution" feature to save time when sending the image to the device. Every kind of metadata makes the image bigger and because we only can send around 20bytes at once this can certainly increase the transfer time!
-
-The [Demo PNG](https://opengameart.org/content/pixel-art-practice) was downloaded from OpenGameArt.org.
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --image true --set-image ./images/demo_16.png
-./run_in_venv.sh --address 00:11:22:33:44:ff --image true --set-image ./images/demo_32.png
-./run_in_venv.sh --address 00:11:22:33:44:ff --image true --set-image ./images/demo_64.png
-```
-
-###### --process-image
-
-If specified it will process the given image. If used, the Python3 library Pillow will be utilized to convert the given image to a PNG with the given amount of pixels (e.g. 32 for 32x32 or 16 for 16x16 pixels). Technically you could use all kind of sizes and variations of images. Keep in mind: processing could take some time depending on your computer. In my tests the given demo.png file takes around 1 second without processing and three seconds with processing.
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --image true --set-image ./images/demo_512.png --process-image 32
-```
-
-##### --set-gif
-
-Path to an GIF to display on the device. See --process-gif for more information! The [Demo GIF](https://opengameart.org/content/animated-pixel-torch) was downloaded from OpenGameArt.org.
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --set-gif ./images/demo.gif
-```
-
-###### --process-gif
-
-If specified it will process the given image. If used, the Python3 library Pillow will be utilized to convert the given image to a GIF with the given amount of pixels (e.g. 32 for 32x32 or 16 for 16x16 pixels). Technically you could use all kind of sizes for the GIF. Keep in mind: processing could take some time depending on your computer and using larger GIFs may result in a bad image quality. You should hand-craft your GIFs in the correct format for best results!
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --set-gif ./images/demo.gif --process-gif 32
-```
-
-##### --set-text
-
-Sets a given text to the display. The [Demo Font](https://www.fontspace.com/rain-font-f22577) was downloaded from fontspace.com and is licensed open source (see font folder or link for details).
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --set-text "Hello World"
-```
-
-###### --text-size
-
-Sets the size of the text.
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --set-text "Hello World" --text-size 10
-```
-
-###### --text-mode
-
-Sets the mode of the text.
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --set-text "Hello World" --text-mode 1
-```
-
-###### --text-speed
-
-Sets the speed of the text.
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --set-text "Hello World" --text-speed 50
-```
-
-###### --text-color-mode
-
-Sets the color mode of the text.
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --set-text "Hello World" --text-color-mode 1
-```
-
-###### --text-color
-
-Sets the color of the text.
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --set-text "Hello World" --text-color 255-255-255
-```
-
-###### --text-bg-mode
-
-Sets the background mode of the text.
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --set-text "Hello World" --text-bg-mode 1
-```
-
-###### --text-bg-color
-
-Sets the background color of the text.
-
-```sh
-./run_in_venv.sh --address 00:11:22:33:44:ff --set-text "Hello World" --text-bg-color 0-0-255
-```
-
-### Gif Compilations
-
-There's no internal method for creating a compilation of gifs or images, similar to what the app offers, 
-but you can create this manually with external tools like ImageMaick or https://ezgif.com/, 
-and upload it to the iDotMatrix device as a single gif.
-
-
-## GUI
-
-### Run Methods
-You can run the GUI uncompiled with python, or you can build an executible with Pyinstaller.
-
-#### Method 1) Run via Python
-* Open terminal at ```/python3-idotmatrix-client```
-* Run ```pip install pyqt5```
-* Run ```py gui.py```
-
-#### Method 2) Build and Run using PyInstaller
-* Run ```build.bat``` for **Windows** or ```build.sh``` for **Linux**
-* Click the new ```iDotMatrix Controller``` program in ```/python3-idotmatrix-client```
-
-#### Method 3) (Windows only) Build and Run using `build.ps1`
-* Right click ```build.ps1``` in Windows Explorer, and click "Run with PowerShell", and answer its prompt.
-* Open the new ```iDotMatrix GUI``` program on your desktop
-
-### Features
-* **Device Search**: *Scans for nearby devices, asks for name, adds to home screen.*
-* **Clock Style**: *Set the Clock Style and Color. Auto sync time.*
-* **Sync Time**: *Sync time to machine clock.*
-* **Set Time**: *Set time.*
-* **Screen On/Off**: *Turn the screen On or Off.*
-* **Stop Watch**: *Use a stop watch.*
-* **Countdown Timer**: *Use a Countdown Timer.*
-* **Set Text**: *Set the text value and effects.*
-* **Color Studio**: *Set background color, or paint your own designs and save them for later use.*
-* **Scoreboard**: *Show a three-digit, two player scoreboard.*
-* **Set Image**: *Pick an image from the file browser to set. Auto Image Processing.*
-* **Set GIF**: *Pick a GIF from the file browser to set. Auto GIF Processing is attempted but does not always work. Source material closer to 16x16 or 32x32 works best.*
-
-### Known Issues
-* [ ] Commands somtimes fail to connect to the device. Usually rerunning the last command will work.
-* [ ] Screen Flip & Screen Freeze work inconsistantly and are not included with the GUI.
-
-*Found a GUI bug? Submitting a new GUI request? Tag [@TheBigWazz](https://github.com/thebigwazz)*
-
-</br>
-
-## Troubleshooting
-
-### Can't upload gifs/images
-
-Try:
-
-- Sending the "reset" command (`--reset`)
-- Use `--process-image` so the program tries to scale your images correctly for you
-- Pre-scale your image to 32x32 or 16x16 pixels using an image editor, and send it unprocessed ("raw" in the GUI)
-- Convert your image to a gif and upload it (You can use ImageMagick or something like http://ezgif.com)
-
-### Can't find device ID 
-
-Try:
-
-- Check that bluetooth is on
-- Place the iDotMatrix display nearby
-- Unplug and replug the iDotMatrix display
-- Restart your PC
-    - If that's not an option for you, killing every "Python" task might work instead.
-
-### Other
-
-If all else fails, you can open an issue on the repository's GitHub.
-
-
-## Roadmap
-
-If you want to contribute please focus on the reverse-engineering part (find more information in the [iDotMatrix Library](https://github.com/derkalle4/python3-idotmatrix-library)). Many thanks for all contributions! If you want to dive deep into other issues please check for "#TODO" comments in the source code as well.
-
-* [X] outsource the reverse-engineered part to a library (suggestion from issue #17)
-* [ ] build configuration file to manage (multiple) devices
-* [ ] Build command line interface with all features to interact with the device
-* [ ] Build RestAPI to interact with the device remotely
-    * [ ] Homeassistant Integration
-* [X] Build GUI to allow non-technical people to use this software
-* [X] build search tool to find displays nearby
-* [ ] make this software compatible with Windows and Linux
-* [ ] provide executables for Windows
-
-## Contributing
-
-Contributions are what make the open source community such an amazing place to be learn, inspire, and create. Any contributions you make are **greatly appreciated**.
-* If you have suggestions for adding or removing projects, feel free to [open an issue](https://github.com/derkalle4/python3-idotmatrix-client/issues/new) to discuss it, or directly create a pull request after you edit the *README.md* file with necessary changes.
-* Please make sure you check your spelling and grammar.
-* Create individual PR for each suggestion.
-* Please also read through the [Code Of Conduct](https://github.com/derkalle4/python3-idotmatrix-client/blob/main/CODE_OF_CONDUCT.md) before posting your first idea as well.
-
-### Creating A Pull Request
-
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## License
-
-Distributed under the GNU GENERAL PUBLIC License. See [LICENSE](https://github.com/derkalle4/python3-idotmatrix-client/blob/main/LICENSE) for more information.
-
-## Authors
-
-* [Kalle Minkner](https://github.com/derkalle4) - *Project Founder*
-* [Jon-Mailes Graeffe](https://github.com/jmgraeffe) - *Co-Founder*
-
-## Acknowledgements
-
-* [Othneil Drew](https://github.com/othneildrew/Best-README-Template) - *README Template*
-* [LordRippon](https://github.com/LordRippon) - *Reverse Engineering for the Displays*
-* [8none1](https://github.com/8none1) - *Reverse Engineering for the Displays*
-* [schorsch3000](https://github.com/schorsch3000) - *smaller fixes*
-* [tekka007](https://github.com/tekka007) - *code refactoring and reverse engineering*
-* [inselberg](https://github.com/inselberg) - *Reverse Engineering for the Displays*
-* [TheBigWazz](https://github.com/thebigwazz) - *GUI and Device Search*
