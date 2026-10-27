@@ -100,6 +100,13 @@ public class DisplayLayoutConfig
     public bool AutoConnect { get; set; } = true;
     public bool MinimizeToTray { get; set; } = true;
 
+    // General & Startup Settings
+    public bool StartWithWindows { get; set; } = false;
+    public bool StartMinimizedToTray { get; set; } = false;
+    public bool AutoScanAndConnectOnStartup { get; set; } = true;
+    public bool AutoReconnect { get; set; } = true;
+    public string OnConnectAction { get; set; } = "HardwareMonitor"; // "None", "HardwareMonitor", "Clock", "SyncTime", "LastDrawing"
+
     private static readonly string ConfigPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "iDotMatrixPro",

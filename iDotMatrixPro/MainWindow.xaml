@@ -15,6 +15,40 @@
         TextElement.FontFamily="Segoe UI"
         Icon="idmc.ico">
 
+    <Window.Resources>
+        <!-- Dark Theme High Contrast Text Brushes -->
+        <SolidColorBrush x:Key="MaterialDesignBody" Color="#F0F2F5"/>
+        <SolidColorBrush x:Key="MaterialDesignBodyLight" Color="#CBD5E1"/>
+
+        <!-- Default Global TextBlock Style: Light Font -->
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#E2E8F0"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+        </Style>
+
+        <!-- CheckBox with Crisp White Text -->
+        <Style TargetType="CheckBox" BasedOn="{StaticResource MaterialDesignCheckBox}">
+            <Setter Property="Foreground" Value="#F8FAFC"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <!-- RadioButton with Crisp White Text -->
+        <Style TargetType="RadioButton" BasedOn="{StaticResource MaterialDesignRadioButton}">
+            <Setter Property="Foreground" Value="#F8FAFC"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <!-- Expander with High Visibility Header -->
+        <Style TargetType="Expander" BasedOn="{StaticResource MaterialDesignExpander}">
+            <Setter Property="Foreground" Value="#00E5FF"/>
+            <Setter Property="Background" Value="#20202E"/>
+            <Setter Property="BorderBrush" Value="#2E2E44"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+    </Window.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -215,9 +249,16 @@
                                 </Border>
 
                                 <!-- CPU Config Section -->
-                                <Expander Header="CONFIGURAÇÃO DA CPU" IsExpanded="True" Background="#20202E" Margin="0,0,0,12">
+                                <Expander IsExpanded="True" Background="#20202E" BorderBrush="#2A2A3E" BorderThickness="1" Margin="0,0,0,12">
+                                    <Expander.Header>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="💻 " FontSize="14"/>
+                                            <TextBlock Text="CONFIGURAÇÃO DA CPU" FontWeight="Bold" FontSize="12" Foreground="#00E5FF"/>
+                                        </StackPanel>
+                                    </Expander.Header>
                                     <StackPanel Margin="12">
                                         <CheckBox x:Name="CpuEnabledCheck" Content="Exibir CPU no Display" IsChecked="True" 
+                                                  Foreground="#F8FAFC" FontWeight="SemiBold"
                                                   Checked="LayoutSettingChanged" Unchecked="LayoutSettingChanged" Margin="0,0,0,8"/>
                                         
                                         <Grid Margin="0,0,0,8">
@@ -227,23 +268,24 @@
                                                 <ColumnDefinition Width="60"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="Pos X:" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBlock Grid.Column="0" Text="Pos X:" Foreground="#CBD5E1" VerticalAlignment="Center" FontSize="11"/>
                                             <Slider x:Name="CpuXSlider" Grid.Column="1" Minimum="0" Maximum="30" Value="1" 
                                                     ValueChanged="LayoutSettingChanged" Margin="4,0,10,0"/>
-                                            <TextBlock Grid.Column="2" Text="Pos Y:" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBlock Grid.Column="2" Text="Pos Y:" Foreground="#CBD5E1" VerticalAlignment="Center" FontSize="11"/>
                                             <Slider x:Name="CpuYSlider" Grid.Column="3" Minimum="0" Maximum="30" Value="2" 
                                                     ValueChanged="LayoutSettingChanged" Margin="4,0,0,0"/>
                                         </Grid>
 
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                            <TextBlock Text="Cor:" VerticalAlignment="Center" FontSize="11" Margin="0,0,8,0"/>
-                                            <TextBox x:Name="CpuColorText" Text="#00E5FF" Width="90" Height="30" TextChanged="LayoutSettingChanged"/>
+                                            <TextBlock Text="Cor:" Foreground="#CBD5E1" VerticalAlignment="Center" FontSize="11" Margin="0,0,8,0"/>
+                                            <TextBox x:Name="CpuColorText" Text="#00E5FF" Width="90" Height="30" Foreground="#FFFFFF" Background="#181824" TextChanged="LayoutSettingChanged"/>
                                             <Button Content="Cyan" Height="26" Margin="6,0,0,0" Padding="8,0" Click="SetColorPreset_Click" Tag="Cpu:#00E5FF"/>
                                             <Button Content="Verde" Height="26" Margin="4,0,0,0" Padding="8,0" Click="SetColorPreset_Click" Tag="Cpu:#00FF66"/>
                                             <Button Content="Branco" Height="26" Margin="4,0,0,0" Padding="8,0" Click="SetColorPreset_Click" Tag="Cpu:#FFFFFF"/>
                                         </StackPanel>
 
                                         <CheckBox x:Name="CpuBarCheck" Content="Exibir Barra de Progresso" IsChecked="True" 
+                                                  Foreground="#F8FAFC" FontWeight="SemiBold"
                                                   Checked="LayoutSettingChanged" Unchecked="LayoutSettingChanged" Margin="0,4,0,6"/>
                                         <Grid Margin="0,0,0,4">
                                             <Grid.ColumnDefinitions>
@@ -252,18 +294,25 @@
                                                 <ColumnDefinition Width="60"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="Barra X:" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBlock Grid.Column="0" Text="Barra X:" Foreground="#CBD5E1" VerticalAlignment="Center" FontSize="11"/>
                                             <Slider x:Name="CpuBarXSlider" Grid.Column="1" Minimum="0" Maximum="30" Value="17" ValueChanged="LayoutSettingChanged" Margin="4,0,10,0"/>
-                                            <TextBlock Grid.Column="2" Text="Barra Y:" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBlock Grid.Column="2" Text="Barra Y:" Foreground="#CBD5E1" VerticalAlignment="Center" FontSize="11"/>
                                             <Slider x:Name="CpuBarYSlider" Grid.Column="3" Minimum="0" Maximum="30" Value="3" ValueChanged="LayoutSettingChanged" Margin="4,0,0,0"/>
                                         </Grid>
                                     </StackPanel>
                                 </Expander>
 
                                 <!-- GPU Config Section -->
-                                <Expander Header="CONFIGURAÇÃO DA GPU" IsExpanded="False" Background="#20202E" Margin="0,0,0,12">
+                                <Expander IsExpanded="False" Background="#20202E" BorderBrush="#2A2A3E" BorderThickness="1" Margin="0,0,0,12">
+                                    <Expander.Header>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="🎮 " FontSize="14"/>
+                                            <TextBlock Text="CONFIGURAÇÃO DA GPU" FontWeight="Bold" FontSize="12" Foreground="#76FF03"/>
+                                        </StackPanel>
+                                    </Expander.Header>
                                     <StackPanel Margin="12">
                                         <CheckBox x:Name="GpuEnabledCheck" Content="Exibir GPU no Display" IsChecked="True" 
+                                                  Foreground="#F8FAFC" FontWeight="SemiBold"
                                                   Checked="LayoutSettingChanged" Unchecked="LayoutSettingChanged" Margin="0,0,0,8"/>
                                         
                                         <Grid Margin="0,0,0,8">
@@ -273,20 +322,21 @@
                                                 <ColumnDefinition Width="60"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="Pos X:" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBlock Grid.Column="0" Text="Pos X:" Foreground="#CBD5E1" VerticalAlignment="Center" FontSize="11"/>
                                             <Slider x:Name="GpuXSlider" Grid.Column="1" Minimum="0" Maximum="30" Value="1" ValueChanged="LayoutSettingChanged" Margin="4,0,10,0"/>
-                                            <TextBlock Grid.Column="2" Text="Pos Y:" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBlock Grid.Column="2" Text="Pos Y:" Foreground="#CBD5E1" VerticalAlignment="Center" FontSize="11"/>
                                             <Slider x:Name="GpuYSlider" Grid.Column="3" Minimum="0" Maximum="30" Value="9" ValueChanged="LayoutSettingChanged" Margin="4,0,0,0"/>
                                         </Grid>
 
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                            <TextBlock Text="Cor:" VerticalAlignment="Center" FontSize="11" Margin="0,0,8,0"/>
-                                            <TextBox x:Name="GpuColorText" Text="#76FF03" Width="90" Height="30" TextChanged="LayoutSettingChanged"/>
+                                            <TextBlock Text="Cor:" Foreground="#CBD5E1" VerticalAlignment="Center" FontSize="11" Margin="0,0,8,0"/>
+                                            <TextBox x:Name="GpuColorText" Text="#76FF03" Width="90" Height="30" Foreground="#FFFFFF" Background="#181824" TextChanged="LayoutSettingChanged"/>
                                             <Button Content="Lime" Height="26" Margin="6,0,0,0" Padding="8,0" Click="SetColorPreset_Click" Tag="Gpu:#76FF03"/>
                                             <Button Content="Cyan" Height="26" Margin="4,0,0,0" Padding="8,0" Click="SetColorPreset_Click" Tag="Gpu:#00E5FF"/>
                                         </StackPanel>
 
                                         <CheckBox x:Name="GpuBarCheck" Content="Exibir Barra de Progresso" IsChecked="True" 
+                                                  Foreground="#F8FAFC" FontWeight="SemiBold"
                                                   Checked="LayoutSettingChanged" Unchecked="LayoutSettingChanged" Margin="0,4,0,6"/>
                                         <Grid Margin="0,0,0,4">
                                             <Grid.ColumnDefinitions>
@@ -295,18 +345,25 @@
                                                 <ColumnDefinition Width="60"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="Barra X:" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBlock Grid.Column="0" Text="Barra X:" Foreground="#CBD5E1" VerticalAlignment="Center" FontSize="11"/>
                                             <Slider x:Name="GpuBarXSlider" Grid.Column="1" Minimum="0" Maximum="30" Value="17" ValueChanged="LayoutSettingChanged" Margin="4,0,10,0"/>
-                                            <TextBlock Grid.Column="2" Text="Barra Y:" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBlock Grid.Column="2" Text="Barra Y:" Foreground="#CBD5E1" VerticalAlignment="Center" FontSize="11"/>
                                             <Slider x:Name="GpuBarYSlider" Grid.Column="3" Minimum="0" Maximum="30" Value="10" ValueChanged="LayoutSettingChanged" Margin="4,0,0,0"/>
                                         </Grid>
                                     </StackPanel>
                                 </Expander>
 
                                 <!-- RAM Config Section -->
-                                <Expander Header="CONFIGURAÇÃO DA MEMÓRIA RAM" IsExpanded="False" Background="#20202E" Margin="0,0,0,12">
+                                <Expander IsExpanded="False" Background="#20202E" BorderBrush="#2A2A3E" BorderThickness="1" Margin="0,0,0,12">
+                                    <Expander.Header>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="⚡ " FontSize="14"/>
+                                            <TextBlock Text="CONFIGURAÇÃO DA MEMÓRIA RAM" FontWeight="Bold" FontSize="12" Foreground="#FFD600"/>
+                                        </StackPanel>
+                                    </Expander.Header>
                                     <StackPanel Margin="12">
                                         <CheckBox x:Name="RamEnabledCheck" Content="Exibir RAM no Display" IsChecked="True" 
+                                                  Foreground="#F8FAFC" FontWeight="SemiBold"
                                                   Checked="LayoutSettingChanged" Unchecked="LayoutSettingChanged" Margin="0,0,0,8"/>
                                         
                                         <Grid Margin="0,0,0,8">
@@ -316,20 +373,21 @@
                                                 <ColumnDefinition Width="60"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="Pos X:" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBlock Grid.Column="0" Text="Pos X:" Foreground="#CBD5E1" VerticalAlignment="Center" FontSize="11"/>
                                             <Slider x:Name="RamXSlider" Grid.Column="1" Minimum="0" Maximum="30" Value="1" ValueChanged="LayoutSettingChanged" Margin="4,0,10,0"/>
-                                            <TextBlock Grid.Column="2" Text="Pos Y:" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBlock Grid.Column="2" Text="Pos Y:" Foreground="#CBD5E1" VerticalAlignment="Center" FontSize="11"/>
                                             <Slider x:Name="RamYSlider" Grid.Column="3" Minimum="0" Maximum="30" Value="16" ValueChanged="LayoutSettingChanged" Margin="4,0,0,0"/>
                                         </Grid>
 
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                            <TextBlock Text="Cor:" VerticalAlignment="Center" FontSize="11" Margin="0,0,8,0"/>
-                                            <TextBox x:Name="RamColorText" Text="#FFD600" Width="90" Height="30" TextChanged="LayoutSettingChanged"/>
+                                            <TextBlock Text="Cor:" Foreground="#CBD5E1" VerticalAlignment="Center" FontSize="11" Margin="0,0,8,0"/>
+                                            <TextBox x:Name="RamColorText" Text="#FFD600" Width="90" Height="30" Foreground="#FFFFFF" Background="#181824" TextChanged="LayoutSettingChanged"/>
                                             <Button Content="Amarelo" Height="26" Margin="6,0,0,0" Padding="8,0" Click="SetColorPreset_Click" Tag="Ram:#FFD600"/>
                                             <Button Content="Laranja" Height="26" Margin="4,0,0,0" Padding="8,0" Click="SetColorPreset_Click" Tag="Ram:#FF9100"/>
                                         </StackPanel>
 
                                         <CheckBox x:Name="RamBarCheck" Content="Exibir Barra de Progresso" IsChecked="True" 
+                                                  Foreground="#F8FAFC" FontWeight="SemiBold"
                                                   Checked="LayoutSettingChanged" Unchecked="LayoutSettingChanged" Margin="0,4,0,6"/>
                                         <Grid Margin="0,0,0,4">
                                             <Grid.ColumnDefinitions>
@@ -338,18 +396,25 @@
                                                 <ColumnDefinition Width="60"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="Barra X:" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBlock Grid.Column="0" Text="Barra X:" Foreground="#CBD5E1" VerticalAlignment="Center" FontSize="11"/>
                                             <Slider x:Name="RamBarXSlider" Grid.Column="1" Minimum="0" Maximum="30" Value="17" ValueChanged="LayoutSettingChanged" Margin="4,0,10,0"/>
-                                            <TextBlock Grid.Column="2" Text="Barra Y:" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBlock Grid.Column="2" Text="Barra Y:" Foreground="#CBD5E1" VerticalAlignment="Center" FontSize="11"/>
                                             <Slider x:Name="RamBarYSlider" Grid.Column="3" Minimum="0" Maximum="30" Value="17" ValueChanged="LayoutSettingChanged" Margin="4,0,0,0"/>
                                         </Grid>
                                     </StackPanel>
                                 </Expander>
 
                                 <!-- Temperatura Config Section -->
-                                <Expander Header="CONFIGURAÇÃO DE TEMPERATURA" IsExpanded="False" Background="#20202E" Margin="0,0,0,12">
+                                <Expander IsExpanded="False" Background="#20202E" BorderBrush="#2A2A3E" BorderThickness="1" Margin="0,0,0,12">
+                                    <Expander.Header>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="🔥 " FontSize="14"/>
+                                            <TextBlock Text="CONFIGURAÇÃO DE TEMPERATURA" FontWeight="Bold" FontSize="12" Foreground="#FF3D00"/>
+                                        </StackPanel>
+                                    </Expander.Header>
                                     <StackPanel Margin="12">
                                         <CheckBox x:Name="TempEnabledCheck" Content="Exibir Temperatura no Display" IsChecked="True" 
+                                                  Foreground="#F8FAFC" FontWeight="SemiBold"
                                                   Checked="LayoutSettingChanged" Unchecked="LayoutSettingChanged" Margin="0,0,0,8"/>
                                         
                                         <Grid Margin="0,0,0,8">
@@ -359,20 +424,21 @@
                                                 <ColumnDefinition Width="60"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="Pos X:" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBlock Grid.Column="0" Text="Pos X:" Foreground="#CBD5E1" VerticalAlignment="Center" FontSize="11"/>
                                             <Slider x:Name="TempXSlider" Grid.Column="1" Minimum="0" Maximum="30" Value="1" ValueChanged="LayoutSettingChanged" Margin="4,0,10,0"/>
-                                            <TextBlock Grid.Column="2" Text="Pos Y:" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBlock Grid.Column="2" Text="Pos Y:" Foreground="#CBD5E1" VerticalAlignment="Center" FontSize="11"/>
                                             <Slider x:Name="TempYSlider" Grid.Column="3" Minimum="0" Maximum="30" Value="24" ValueChanged="LayoutSettingChanged" Margin="4,0,0,0"/>
                                         </Grid>
 
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                            <TextBlock Text="Cor:" VerticalAlignment="Center" FontSize="11" Margin="0,0,8,0"/>
-                                            <TextBox x:Name="TempColorText" Text="#FF3D00" Width="90" Height="30" TextChanged="LayoutSettingChanged"/>
+                                            <TextBlock Text="Cor:" Foreground="#CBD5E1" VerticalAlignment="Center" FontSize="11" Margin="0,0,8,0"/>
+                                            <TextBox x:Name="TempColorText" Text="#FF3D00" Width="90" Height="30" Foreground="#FFFFFF" Background="#181824" TextChanged="LayoutSettingChanged"/>
                                             <Button Content="Vermelho" Height="26" Margin="6,0,0,0" Padding="8,0" Click="SetColorPreset_Click" Tag="Temp:#FF3D00"/>
                                             <Button Content="Magenta" Height="26" Margin="4,0,0,0" Padding="8,0" Click="SetColorPreset_Click" Tag="Temp:#FF0055"/>
                                         </StackPanel>
 
                                         <CheckBox x:Name="TempBarCheck" Content="Exibir Barra de Progresso" IsChecked="True" 
+                                                  Foreground="#F8FAFC" FontWeight="SemiBold"
                                                   Checked="LayoutSettingChanged" Unchecked="LayoutSettingChanged" Margin="0,4,0,6"/>
                                         <Grid Margin="0,0,0,4">
                                             <Grid.ColumnDefinitions>
@@ -381,9 +447,9 @@
                                                 <ColumnDefinition Width="60"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="Barra X:" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBlock Grid.Column="0" Text="Barra X:" Foreground="#CBD5E1" VerticalAlignment="Center" FontSize="11"/>
                                             <Slider x:Name="TempBarXSlider" Grid.Column="1" Minimum="0" Maximum="30" Value="17" ValueChanged="LayoutSettingChanged" Margin="4,0,10,0"/>
-                                            <TextBlock Grid.Column="2" Text="Barra Y:" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBlock Grid.Column="2" Text="Barra Y:" Foreground="#CBD5E1" VerticalAlignment="Center" FontSize="11"/>
                                             <Slider x:Name="TempBarYSlider" Grid.Column="3" Minimum="0" Maximum="30" Value="25" ValueChanged="LayoutSettingChanged" Margin="4,0,0,0"/>
                                         </Grid>
                                     </StackPanel>
@@ -732,6 +798,121 @@
                                     Click="ResetDevice_Click"/>
                         </StackPanel>
                     </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- TAB 7: CONFIGURAÇÕES DO PROGRAMA -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⚙️" FontSize="16" Margin="0,0,10,0"/>
+                        <TextBlock Text="Configurações" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <Grid Margin="20">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel MaxWidth="800" HorizontalAlignment="Left">
+                            <TextBlock Text="CONFIGURAÇÕES DO APLICATIVO" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,4"/>
+                            <TextBlock Text="Personalize inicialização com o sistema, auto-conexão Bluetooth e rotinas automáticas." FontSize="12" Foreground="#94A3B8" Margin="0,0,0,20"/>
+
+                            <!-- Card 1: Inicialização do Windows -->
+                            <Border Background="#181822" CornerRadius="12" Padding="20" BorderBrush="#28283C" BorderThickness="1" Margin="0,0,0,16">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                        <TextBlock Text="🪟" FontSize="16" Margin="0,0,8,0"/>
+                                        <TextBlock Text="INICIALIZAÇÃO DO WINDOWS" FontSize="14" FontWeight="Bold" Foreground="#00E5FF"/>
+                                    </StackPanel>
+                                    
+                                    <CheckBox x:Name="ConfigStartWithWindowsCheck" Content="Iniciar o iDotMatrix Pro automaticamente com o Windows"
+                                              FontSize="13" Margin="0,0,0,8" Checked="ConfigSettingChanged" Unchecked="ConfigSettingChanged"/>
+                                    <TextBlock Text="Registra o programa para iniciar junto com o sistema operacional para que seus displays sempre estejam ativos."
+                                               FontSize="11" Foreground="#94A3B8" Margin="30,0,0,14" TextWrapping="Wrap"/>
+
+                                    <CheckBox x:Name="ConfigStartMinimizedCheck" Content="Iniciar minimizado silenciosamente na bandeja (System Tray)"
+                                              FontSize="13" Margin="0,0,0,8" Checked="ConfigSettingChanged" Unchecked="ConfigSettingChanged"/>
+                                    <TextBlock Text="Ao ligar o computador, o programa inicia em segundo plano sem abrir a janela na tela."
+                                               FontSize="11" Foreground="#94A3B8" Margin="30,0,0,14" TextWrapping="Wrap"/>
+
+                                    <CheckBox x:Name="ConfigMinimizeToTrayCheck" Content="Minimizar para a bandeja ao fechar a janela (ao invés de encerrar)"
+                                              FontSize="13" Margin="0,0,0,8" Checked="ConfigSettingChanged" Unchecked="ConfigSettingChanged"/>
+                                    <TextBlock Text="Ao clicar no 'X', o aplicativo continuará ativo na bandeja ao lado do relógio do Windows."
+                                               FontSize="11" Foreground="#94A3B8" Margin="30,0,0,0" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Card 2: Conexão Bluetooth Automática -->
+                            <Border Background="#181822" CornerRadius="12" Padding="20" BorderBrush="#28283C" BorderThickness="1" Margin="0,0,0,16">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                        <TextBlock Text="📶" FontSize="16" Margin="0,0,8,0"/>
+                                        <TextBlock Text="CONEXÃO BLUETOOTH AUTOMÁTICA" FontSize="14" FontWeight="Bold" Foreground="#76FF03"/>
+                                    </StackPanel>
+
+                                    <CheckBox x:Name="ConfigAutoConnectCheck" Content="Escanear e conectar automaticamente ao abrir o aplicativo"
+                                              FontSize="13" Margin="0,0,0,8" Checked="ConfigSettingChanged" Unchecked="ConfigSettingChanged"/>
+                                    <TextBlock Text="Ao abrir o app, conecta imediatamente ao display salvo ou busca dispositivos próximos e conecta no primeiro encontrado."
+                                               FontSize="11" Foreground="#94A3B8" Margin="30,0,0,14" TextWrapping="Wrap"/>
+
+                                    <StackPanel Margin="30,0,0,14">
+                                        <TextBlock Text="Dispositivo Bluetooth Preferido (MAC Address):" FontSize="12" FontWeight="SemiBold" Foreground="#F8FAFC" Margin="0,0,0,6"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBox x:Name="ConfigSavedMacText" Width="220" Height="34" FontSize="13" Foreground="#FFFFFF"
+                                                     Background="#20202E" Padding="8,6" Margin="0,0,10,0"/>
+                                            <Button Content="Definir Atual como Padrão" Height="34"
+                                                    Style="{StaticResource MaterialDesignOutlinedButton}" BorderBrush="#00E5FF" Foreground="#00E5FF"
+                                                    Click="SetCurrentAsSavedMac_Click"/>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <CheckBox x:Name="ConfigAutoReconnectCheck" Content="Tentativa contínua de reconexão automática em caso de queda de sinal"
+                                              FontSize="13" Margin="0,0,0,8" Checked="ConfigSettingChanged" Unchecked="ConfigSettingChanged"/>
+                                    <TextBlock Text="Se o display for desligado e religado, o aplicativo restabelecerá a comunicação automaticamente."
+                                               FontSize="11" Foreground="#94A3B8" Margin="30,0,0,0" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Card 3: Ação Executada ao Conectar -->
+                            <Border Background="#181822" CornerRadius="12" Padding="20" BorderBrush="#28283C" BorderThickness="1" Margin="0,0,0,20">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                        <TextBlock Text="⚡" FontSize="16" Margin="0,0,8,0"/>
+                                        <TextBlock Text="AÇÃO EXECUTADA AO CONECTAR" FontSize="14" FontWeight="Bold" Foreground="#FFD600"/>
+                                    </StackPanel>
+                                    
+                                    <TextBlock Text="Escolha qual função do sistema deve ser iniciada automaticamente assim que o display for conectado com sucesso:"
+                                               FontSize="12" Foreground="#CBD5E1" Margin="0,0,0,12" TextWrapping="Wrap"/>
+
+                                    <ComboBox x:Name="ConfigOnConnectActionCombo" Width="480" Height="38" HorizontalAlignment="Left"
+                                              Background="#20202E" Foreground="#FFFFFF" FontSize="13" Padding="10,6"
+                                              SelectionChanged="ConfigOnConnectActionCombo_SelectionChanged" Margin="0,0,0,12">
+                                        <ComboBoxItem Content="1. Nenhuma Ação (Apenas manter conectado)" Tag="None"/>
+                                        <ComboBoxItem Content="2. Iniciar Monitor de Hardware do PC (Streaming CPU/GPU/RAM/Temp)" Tag="HardwareMonitor"/>
+                                        <ComboBoxItem Content="3. Iniciar Modo Relógio Customizado no Display" Tag="Clock"/>
+                                        <ComboBoxItem Content="4. Sincronizar Horário do Hardware e Manter Relógio Interno" Tag="SyncTime"/>
+                                        <ComboBoxItem Content="5. Projetar Última Arte da Tela de Desenho DIY" Tag="LastDrawing"/>
+                                    </ComboBox>
+
+                                    <Border Background="#20202E" CornerRadius="8" Padding="12">
+                                        <TextBlock x:Name="ConfigActionDescriptionText"
+                                                   Text="O monitoramento ao vivo de CPU, GPU, RAM e temperatura será iniciado automaticamente no painel de LED assim que conectar."
+                                                   FontSize="11" Foreground="#38BDF8" TextWrapping="Wrap"/>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Save and Status Feedback -->
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                                <Button Content="💾 Salvar Configurações Gerais" Height="42" Padding="20,0"
+                                        Background="#00E5FF" Foreground="#0A0A10" FontWeight="Bold" FontSize="13"
+                                        Click="SaveSettingsBtn_Click" Margin="0,0,12,0"/>
+                                <Button Content="Restaurar Padrões" Height="42" Padding="16,0"
+                                        Style="{StaticResource MaterialDesignOutlinedButton}" BorderBrush="#555566" Foreground="#CBD5E1"
+                                        Click="ResetSettingsBtn_Click"/>
+                                <TextBlock x:Name="SettingsFeedbackText" Text="" VerticalAlignment="Center" Margin="16,0,0,0"
+                                           FontSize="12" FontWeight="Bold" Foreground="#00E676"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
                 </Grid>
             </TabItem>
         </TabControl>

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("iDotMatrixPro")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+330630e5f8dad78f459bf809e54cbfae8de1ba8f")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ab13d207ec48e5ad17c72ddf46b052ed46abcec0")]
 [assembly: System.Reflection.AssemblyProductAttribute("iDotMatrixPro")]
 [assembly: System.Reflection.AssemblyTitleAttribute("iDotMatrixPro")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

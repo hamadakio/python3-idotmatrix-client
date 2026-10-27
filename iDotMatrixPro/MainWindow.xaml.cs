@@ -49,13 +49,16 @@ public partial class MainWindow : Window
     private uint _activeDrawColor = 0xFF00E5FF; // Default Cyan
     private readonly Rectangle[,] _canvasCells = new Rectangle[32, 32];
     private bool _isDrawingMouseDown;
+    private readonly bool _startMinimized;
+    private bool _autoConnectFirstFound;
 
     // Scoreboard
     private int _score1 = 0;
     private int _score2 = 0;
 
-    public MainWindow()
+    public MainWindow(bool startMinimized = false)
     {
+        _startMinimized = startMinimized;
         InitializeComponent();
         Loaded += MainWindow_Loaded;
         Closing += MainWindow_Closing;
@@ -73,6 +76,11 @@ public partial class MainWindow : Window
             ConnectBtn.Content = connected ? "Desconectar" : "Conectar";
             ConnectBtn.Background = connected ? new SolidColorBrush(Color.FromRgb(0xFF, 0x52, 0x52)) : new SolidColorBrush(Color.FromRgb(0x00, 0xE5, 0xFF));
             Log(msg);
+
+            if (connected)
+            {
+                _ = ExecuteOnConnectActionAsync();
+            }
         });
 
         _bluetooth.DeviceDiscovered += (item) => Dispatcher.Invoke(() =>
@@ -85,6 +93,17 @@ public partial class MainWindow : Window
                     DeviceComboBox.SelectedIndex = 0;
                 }
             }
+
+            // Auto-connect to first found device if requested
+            if (_autoConnectFirstFound && !_bluetooth.IsConnected)
+            {
+                _autoConnectFirstFound = false;
+                DeviceComboBox.Text = item.Address;
+                _config.LastMacAddress = item.Address;
+                _config.Save();
+                Log($"Auto-conexão: conectando automaticamente a {item.Name} ({item.Address})...");
+                _ = _bluetooth.ConnectAsync(item.Address);
+            }
         });
 
         _bluetooth.ScanFinished += () => Dispatcher.Invoke(() =>
@@ -96,6 +115,7 @@ public partial class MainWindow : Window
 
         // Initialize UI from Saved Config
         LoadConfigIntoUi();
+        LoadSettingsIntoUi();
 
         // Initialize DIY Canvas & Palette
         InitializeDiyCanvas();
@@ -115,14 +135,28 @@ public partial class MainWindow : Window
         _ = UpdateMonitorPreviewAsync();
         UpdateClockPreview();
 
-        // Auto-connect if previous MAC was stored
-        if (!string.IsNullOrWhiteSpace(_config.LastMacAddress))
+        // Auto-connect / Auto-scan logic on startup
+        if (_config.AutoScanAndConnectOnStartup)
         {
-            DeviceComboBox.Text = _config.LastMacAddress;
-            if (_config.AutoConnect)
+            if (!string.IsNullOrWhiteSpace(_config.LastMacAddress))
             {
+                DeviceComboBox.Text = _config.LastMacAddress;
+                Log($"Auto-conexão: conectando ao display salvo ({_config.LastMacAddress})...");
                 _ = _bluetooth.ConnectAsync(_config.LastMacAddress);
             }
+            else
+            {
+                Log("Auto-conexão: buscando displays iDotMatrix próximos...");
+                _autoConnectFirstFound = true;
+                ScanBtn_Click(this, new RoutedEventArgs());
+            }
+        }
+
+        // Handle initial minimized state
+        if (_startMinimized || (_config.StartMinimizedToTray && _startMinimized))
+        {
+            Hide();
+            _trayManager?.ShowNotification("iDotMatrix Pro", "Iniciado silenciosamente na bandeja do sistema.");
         }
 
         _isInitialized = true;
@@ -376,25 +410,31 @@ public partial class MainWindow : Window
         }
     }
 
+    public void StartMonitorStreaming()
+    {
+        _isMonitorStreaming = true;
+        _isClockStreaming = false;
+        _monitorTimer.Start();
+        ToggleMonitorStreamBtn.Content = "⏹ Pausar Monitoramento";
+        ToggleMonitorStreamBtn.Background = new SolidColorBrush(Color.FromRgb(0xFF, 0x52, 0x52));
+        Log("Transmissão contínua de estatísticas do PC ativada.");
+    }
+
+    public void StopMonitorStreaming()
+    {
+        _isMonitorStreaming = false;
+        _monitorTimer.Stop();
+        ToggleMonitorStreamBtn.Content = "▶ Iniciar Monitoramento no Display";
+        ToggleMonitorStreamBtn.Background = new SolidColorBrush(Color.FromRgb(0x00, 0xE5, 0xFF));
+        Log("Transmissão pausada.");
+    }
+
     private void ToggleMonitorStreamBtn_Click(object sender, RoutedEventArgs e)
     {
         if (!_isMonitorStreaming)
-        {
-            _isMonitorStreaming = true;
-            _isClockStreaming = false;
-            _monitorTimer.Start();
-            ToggleMonitorStreamBtn.Content = "⏹ Pausar Monitoramento";
-            ToggleMonitorStreamBtn.Background = new SolidColorBrush(Color.FromRgb(0xFF, 0x52, 0x52));
-            Log("Transmissão contínua de estatísticas do PC ativada.");
-        }
+            StartMonitorStreaming();
         else
-        {
-            _isMonitorStreaming = false;
-            _monitorTimer.Stop();
-            ToggleMonitorStreamBtn.Content = "▶ Iniciar Monitoramento no Display";
-            ToggleMonitorStreamBtn.Background = new SolidColorBrush(Color.FromRgb(0x00, 0xE5, 0xFF));
-            Log("Transmissão pausada.");
-        }
+            StopMonitorStreaming();
     }
 
     #endregion
@@ -418,26 +458,82 @@ public partial class MainWindow : Window
         }
     }
 
+    public void StartClockStreaming()
+    {
+        _isClockStreaming = true;
+        _isMonitorStreaming = false;
+        _clockTimer.Start();
+        ToggleClockStreamBtn.Content = "⏹ Parar Relógio Customizado";
+        ToggleClockStreamBtn.Background = new SolidColorBrush(Color.FromRgb(0xFF, 0x52, 0x52));
+        Log("Transmissão do relógio customizado ativada.");
+    }
+
+    public void StopClockStreaming()
+    {
+        _isClockStreaming = false;
+        _clockTimer.Stop();
+        ToggleClockStreamBtn.Content = "▶ Transmitir Relógio ao Display";
+        ToggleClockStreamBtn.Background = new SolidColorBrush(Color.FromRgb(0x00, 0xE5, 0xFF));
+        Log("Transmissão do relógio interrompida.");
+    }
+
     private void ToggleClockStreamBtn_Click(object sender, RoutedEventArgs e)
     {
         if (!_isClockStreaming)
-        {
-            _isClockStreaming = true;
-            _isMonitorStreaming = false;
-            _clockTimer.Start();
-            ToggleClockStreamBtn.Content = "⏹ Parar Relógio Customizado";
-            ToggleClockStreamBtn.Background = new SolidColorBrush(Color.FromRgb(0xFF, 0x52, 0x52));
-            Log("Transmissão do relógio customizado ativada.");
-        }
+            StartClockStreaming();
         else
+            StopClockStreaming();
+    }
+
+    private async Task ExecuteOnConnectActionAsync()
+    {
+        try
         {
-            _isClockStreaming = false;
-            _clockTimer.Stop();
-            ToggleClockStreamBtn.Content = "▶ Transmitir Relógio ao Display";
-            ToggleClockStreamBtn.Background = new SolidColorBrush(Color.FromRgb(0x00, 0xE5, 0xFF));
-            Log("Transmissão do relógio interrompida.");
+            await Task.Delay(500); // Give BLE connection a moment to stabilize
+            string action = _config.OnConnectAction ?? "HardwareMonitor";
+            Log($"Executando rotina pós-conexão: {GetActionFriendlyName(action)}");
+
+            switch (action)
+            {
+                case "HardwareMonitor":
+                    StartMonitorStreaming();
+                    break;
+
+                case "Clock":
+                    StartClockStreaming();
+                    break;
+
+                case "SyncTime":
+                    await _bluetooth.SyncTimeAsync();
+                    await _bluetooth.SetClockAsync(0, true, true, 255, 255, 255);
+                    Log("Horário do hardware sincronizado e mantido.");
+                    break;
+
+                case "LastDrawing":
+                    await SendDrawingToDisplayAsync();
+                    break;
+
+                case "None":
+                default:
+                    Log("Dispositivo conectado. Nenhuma ação automática configurada.");
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log($"Erro ao executar ação pós-conexão: {ex.Message}");
         }
     }
+
+    private string GetActionFriendlyName(string action) => action switch
+    {
+        "HardwareMonitor" => "Monitor de Hardware do PC",
+        "Clock" => "Relógio Digital Customizado",
+        "SyncTime" => "Sincronização de Hora do Hardware",
+        "LastDrawing" => "Envio da Última Arte DIY",
+        "None" => "Nenhuma (Apenas manter conectado)",
+        _ => action
+    };
 
     private async void SyncHardwareClock_Click(object sender, RoutedEventArgs e)
     {
@@ -617,7 +713,7 @@ public partial class MainWindow : Window
         Log("Tela de desenho limpa.");
     }
 
-    private async void SendDrawingToDisplay_Click(object sender, RoutedEventArgs e)
+    public async Task SendDrawingToDisplayAsync()
     {
         if (_bluetooth.IsConnected)
         {
@@ -629,6 +725,11 @@ public partial class MainWindow : Window
         {
             Log("Conecte ao display antes de enviar.");
         }
+    }
+
+    private async void SendDrawingToDisplay_Click(object sender, RoutedEventArgs e)
+    {
+        await SendDrawingToDisplayAsync();
     }
 
     public void LoadPixelsIntoDiyCanvas(uint[,] pixels)
@@ -938,6 +1039,124 @@ public partial class MainWindow : Window
     {
         _trayManager?.MinimizeToTray();
         _trayManager?.ShowNotification("iDotMatrix Pro", "Minimizado para a bandeja do sistema. Clique duas vezes no ícone para restaurar.");
+    }
+
+    #endregion
+
+    #region Settings Tab Handlers
+
+    private void LoadSettingsIntoUi()
+    {
+        ConfigStartWithWindowsCheck.IsChecked = StartupHelper.IsStartupEnabled();
+        ConfigStartMinimizedCheck.IsChecked = _config.StartMinimizedToTray;
+        ConfigMinimizeToTrayCheck.IsChecked = _config.MinimizeToTray;
+        ConfigAutoConnectCheck.IsChecked = _config.AutoScanAndConnectOnStartup;
+        ConfigAutoReconnectCheck.IsChecked = _config.AutoReconnect;
+        ConfigSavedMacText.Text = _config.LastMacAddress;
+
+        // Select Action in ComboBox
+        string act = _config.OnConnectAction ?? "HardwareMonitor";
+        foreach (ComboBoxItem item in ConfigOnConnectActionCombo.Items)
+        {
+            if (item.Tag?.ToString() == act)
+            {
+                ConfigOnConnectActionCombo.SelectedItem = item;
+                break;
+            }
+        }
+        UpdateActionDescription();
+    }
+
+    private void ConfigSettingChanged(object sender, RoutedEventArgs e)
+    {
+        if (!_isInitialized || _isUpdatingUiFromConfig) return;
+    }
+
+    private void ConfigOnConnectActionCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        UpdateActionDescription();
+    }
+
+    private void UpdateActionDescription()
+    {
+        if (ConfigActionDescriptionText == null || ConfigOnConnectActionCombo == null) return;
+        if (ConfigOnConnectActionCombo.SelectedItem is ComboBoxItem item && item.Tag is string tag)
+        {
+            ConfigActionDescriptionText.Text = tag switch
+            {
+                "None" => "O display apenas manterá a conexão Bluetooth aberta aguardando comandos manuais sem enviar nenhuma tela automática.",
+                "HardwareMonitor" => "O monitoramento ao vivo de CPU, GPU, RAM e temperatura do seu PC será iniciado automaticamente na matriz LED assim que conectar.",
+                "Clock" => "O relógio digital customizado configurado no estúdio será renderizado e transmitido continuamente ao display.",
+                "SyncTime" => "O horário do hardware do display será sincronizado com o relógio do seu computador e o relógio embutido nativo do display será ativado.",
+                "LastDrawing" => "O desenho ou pixel art atual da tela de pintura DIY será projetado no display assim que a conexão for estabelecida.",
+                _ => ""
+            };
+        }
+    }
+
+    private void SetCurrentAsSavedMac_Click(object sender, RoutedEventArgs e)
+    {
+        string current = DeviceComboBox.Text.Trim();
+        if (!string.IsNullOrEmpty(current))
+        {
+            ConfigSavedMacText.Text = current;
+            _config.LastMacAddress = current;
+            _config.Save();
+            SettingsFeedbackText.Text = $"✓ Dispositivo {current} definido como padrão!";
+            Log($"Dispositivo padrão configurado para {current}");
+        }
+        else
+        {
+            SettingsFeedbackText.Text = "⚠️ Nenhum dispositivo selecionado no topo.";
+        }
+    }
+
+    private void SaveSettingsBtn_Click(object sender, RoutedEventArgs e)
+    {
+        bool startWithWin = ConfigStartWithWindowsCheck.IsChecked == true;
+        bool startMin = ConfigStartMinimizedCheck.IsChecked == true;
+
+        _config.StartWithWindows = startWithWin;
+        _config.StartMinimizedToTray = startMin;
+        _config.MinimizeToTray = ConfigMinimizeToTrayCheck.IsChecked == true;
+        _config.AutoScanAndConnectOnStartup = ConfigAutoConnectCheck.IsChecked == true;
+        _config.AutoReconnect = ConfigAutoReconnectCheck.IsChecked == true;
+        _config.LastMacAddress = ConfigSavedMacText.Text.Trim();
+
+        if (ConfigOnConnectActionCombo.SelectedItem is ComboBoxItem selItem && selItem.Tag is string actionTag)
+        {
+            _config.OnConnectAction = actionTag;
+        }
+
+        // Apply Windows Autostart in registry
+        bool regOk = StartupHelper.SetStartup(startWithWin, startMin);
+
+        _config.Save();
+        SettingsFeedbackText.Text = regOk 
+            ? "✓ Configurações salvas e aplicadas com sucesso!" 
+            : "✓ Configurações salvas!";
+        Log("Configurações gerais do programa salvas.");
+    }
+
+    private void ResetSettingsBtn_Click(object sender, RoutedEventArgs e)
+    {
+        ConfigStartWithWindowsCheck.IsChecked = false;
+        ConfigStartMinimizedCheck.IsChecked = false;
+        ConfigMinimizeToTrayCheck.IsChecked = true;
+        ConfigAutoConnectCheck.IsChecked = true;
+        ConfigAutoReconnectCheck.IsChecked = true;
+
+        foreach (ComboBoxItem item in ConfigOnConnectActionCombo.Items)
+        {
+            if (item.Tag?.ToString() == "HardwareMonitor")
+            {
+                ConfigOnConnectActionCombo.SelectedItem = item;
+                break;
+            }
+        }
+
+        SaveSettingsBtn_Click(sender, e);
+        SettingsFeedbackText.Text = "✓ Configurações restauradas para os padrões recomendados.";
     }
 
     #endregion

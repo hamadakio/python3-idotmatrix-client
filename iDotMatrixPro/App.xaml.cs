@@ -27,9 +27,22 @@ public partial class App : System.Windows.Application
 
         try
         {
-            var mainWindow = new MainWindow();
+            bool startMinimized = false;
+            foreach (string arg in e.Args)
+            {
+                if (arg.Equals("--minimized", StringComparison.OrdinalIgnoreCase))
+                {
+                    startMinimized = true;
+                    break;
+                }
+            }
+
+            var mainWindow = new MainWindow(startMinimized);
             MainWindow = mainWindow;
-            mainWindow.Show();
+            if (!startMinimized)
+            {
+                mainWindow.Show();
+            }
         }
         catch (Exception ex)
         {
