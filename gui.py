@@ -1,1212 +1,1565 @@
-import requests
-from datetime import datetime
-from PIL import Image, ImageDraw, ImageSequence
-import numpy
+import os
+import sys
+import copy
+from typing import List, Tuple
+from PIL import Image, ImageQt
 
-
-
-from utils.utils import digits, patterns, colors
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QPushButton, QLabel, QStackedWidget,
-    QPlainTextEdit, QHBoxLayout, QMessageBox, QListWidgetItem, QGridLayout,
-    QDialog, QLineEdit, QListWidget, QInputDialog, QCheckBox, QDialogButtonBox,
-    QComboBox, QColorDialog, QSlider, QMenu, QFileDialog
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
+    QPushButton, QLabel, QLineEdit, QComboBox, QSlider, QStackedWidget,
+    QCheckBox, QSpinBox, QColorDialog, QFileDialog, QMessageBox, QFrame,
+    QTabWidget, QScrollArea, QSplitter, QProgressBar, QButtonGroup, QRadioButton
 )
-from PyQt5.QtGui import QFont, QIcon, QColor
-from PyQt5.QtCore import Qt, QProcess, QSettings, pyqtSignal
-import sys, os, re, copy
+from PyQt5.QtGui import QIcon, QFont, QColor, QPixmap, QImage, QPainter, QPen, QBrush
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal
+
+# Core modules
+from core.ble_controller import BleController
+from core.hardware_monitor import HardwareMonitor
+from core.weather_service import WeatherService
+from core.presets import (
+    CLOCK_FACES, FEED_PRESETS, SnakeGameEngine,
+    render_sound_eq_frame, render_campfire_pattern, render_ocean_waves_pattern,
+    create_notification_art
+)
+
+PROJ_DIR = os.path.dirname(os.path.abspath(__file__))
+ICON_PATH = os.path.join(PROJ_DIR, "idmc.ico")
 
 
-# --- Module-Scope Variables ---
-proj_dir = os.path.dirname(os.path.abspath(__file__))
-if sys.platform == 'win32':
-    shell_cmd       = 'powershell.exe'
-    shell_init_args = ['-File', f"{proj_dir}\\run_in_venv.ps1"]
-else:
-    shell_cmd       = 'sh'
-    shell_init_args = [f"{proj_dir}/run_in_venv.sh"]
+# -------------------------------------------------------------
+# MODERN DARK GLASSMORPHIC STYLESHEET
+# -------------------------------------------------------------
+MODERN_STYLESHEET = """
+QMainWindow, QWidget {
+    background-color: #0d1117;
+    color: #e6edf3;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    font-size: 13px;
+}
+
+/* Scrollbars */
+QScrollBar:vertical {
+    border: none;
+    background: #161b22;
+    width: 8px;
+    border-radius: 4px;
+}
+QScrollBar::handle:vertical {
+    background: #30363d;
+    border-radius: 4px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #58a6ff;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+/* Headers & Cards */
+QFrame.Card {
+    background-color: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 12px;
+}
+QFrame.Card:hover {
+    border-color: #58a6ff;
+}
+
+/* Tabs */
+QTabWidget::pane {
+    border: 1px solid #30363d;
+    background-color: #0d1117;
+    border-radius: 8px;
+    padding: 6px;
+}
+QTabBar::tab {
+    background: #161b22;
+    color: #8b949e;
+    padding: 10px 18px;
+    margin-right: 4px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    font-weight: 600;
+}
+QTabBar::tab:selected {
+    background: #21262d;
+    color: #58a6ff;
+    border-bottom: 2px solid #58a6ff;
+}
+QTabBar::tab:hover {
+    color: #f0f6fc;
+}
+
+/* Buttons */
+QPushButton {
+    background-color: #21262d;
+    color: #c9d1d9;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: 600;
+}
+QPushButton:hover {
+    background-color: #30363d;
+    color: #f0f6fc;
+    border-color: #8b949e;
+}
+QPushButton:pressed {
+    background-color: #161b22;
+}
+
+QPushButton.Primary {
+    background-color: #1f6feb;
+    color: #ffffff;
+    border: 1px solid #388bfd;
+}
+QPushButton.Primary:hover {
+    background-color: #388bfd;
+}
+
+QPushButton.Success {
+    background-color: #238636;
+    color: #ffffff;
+    border: 1px solid #2ea043;
+}
+QPushButton.Success:hover {
+    background-color: #2ea043;
+}
+
+QPushButton.Danger {
+    background-color: #da3633;
+    color: #ffffff;
+    border: 1px solid #f85149;
+}
+QPushButton.Danger:hover {
+    background-color: #f85149;
+}
+
+/* Inputs & Combos */
+QLineEdit, QSpinBox, QComboBox {
+    background-color: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 6px 10px;
+    color: #f0f6fc;
+}
+QLineEdit:focus, QSpinBox:focus, QComboBox:focus {
+    border-color: #58a6ff;
+}
+QComboBox::drop-down {
+    border: none;
+}
+
+/* Sliders */
+QSlider::groove:horizontal {
+    border: none;
+    height: 6px;
+    background: #21262d;
+    border-radius: 3px;
+}
+QSlider::sub-page:horizontal {
+    background: #58a6ff;
+    border-radius: 3px;
+}
+QSlider::handle:horizontal {
+    background: #f0f6fc;
+    width: 16px;
+    height: 16px;
+    margin-top: -5px;
+    margin-bottom: -5px;
+    border-radius: 8px;
+}
+"""
 
 
+# -------------------------------------------------------------
+# PIXEL CANVAS WIDGET (FRAME-BY-FRAME DIY EDITOR)
+# -------------------------------------------------------------
+class PixelCanvasWidget(QWidget):
+    pixel_changed = pyqtSignal()
 
-
-# --- Dialog Classes ---
-class ClockStyleDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, grid_size=32, parent=None):
         super().__init__(parent)
-        self.setWindowTitle('Clock Style')
-        self.layout = QVBoxLayout(self)
+        self.grid_size = grid_size
+        self.grid = [[QColor(15, 18, 26) for _ in range(grid_size)] for _ in range(grid_size)]
+        self.current_color = QColor(0, 229, 255)
+        self.tool = "pencil"  # pencil, eraser, fill, picker
+        self.is_drawing = False
+        self.setMouseTracking(True)
+        self.setMinimumSize(320, 320)
 
-        # Available clock styles
-        self.clock_styles = ['Default', 'Christmas', 'Racing', 'Inverted Full Screen', 'Animated Hourglass', 'Frame 1', 'Frame 2', 'Frame 3']
-        self.selected_color = None  # Variable to hold the selected color
+    def set_grid_size(self, size: int):
+        self.grid_size = size
+        self.grid = [[QColor(15, 18, 26) for _ in range(size)] for _ in range(size)]
+        self.update()
 
-        # Clock style selection
-        self.clock_style_label = QLabel('Select Clock Style:')
-        self.clock_style_combo = QComboBox(self)
-        self.clock_style_combo.addItems(self.clock_styles)
-        
-        # Checkboxes for additional options
-        self.show_date_checkbox = QCheckBox('Show Date', self)
-        self.show_24hr_checkbox = QCheckBox('24-Hour Format', self)
-        
-        # Color picker button
-        self.color_picker_button = QPushButton('Choose Color', self)
-        self.color_picker_button.clicked.connect(self.open_color_dialog)
-        
-        # Dialog button box (OK and Cancel)
-        self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, self)
-        self.button_box.accepted.connect(self.accept)
-        self.button_box.rejected.connect(self.reject)
+    def get_pil_image(self) -> Image.Image:
+        img = Image.new("RGB", (self.grid_size, self.grid_size), (0, 0, 0))
+        draw_pixels = img.load()
+        for y in range(self.grid_size):
+            for x in range(self.grid_size):
+                qc = self.grid[y][x]
+                draw_pixels[x, y] = (qc.red(), qc.green(), qc.blue())
+        return img
 
-        # Add widgets to the layout
-        self.layout.addWidget(self.clock_style_label)
-        self.layout.addWidget(self.clock_style_combo)
-        self.layout.addWidget(self.show_date_checkbox)
-        self.layout.addWidget(self.show_24hr_checkbox)
-        self.layout.addWidget(self.color_picker_button)
-        self.layout.addWidget(self.button_box)
+    def load_pil_image(self, img: Image.Image):
+        img_rgb = img.resize((self.grid_size, self.grid_size), Image.NEAREST).convert("RGB")
+        pixels = img_rgb.load()
+        for y in range(self.grid_size):
+            for x in range(self.grid_size):
+                r, g, b = pixels[x, y]
+                self.grid[y][x] = QColor(r, g, b)
+        self.update()
+        self.pixel_changed.emit()
 
-    def open_color_dialog(self):
-        color_dialog = QColorDialog(self)
-        if color_dialog.exec_() == QColorDialog.Accepted:
-            self.selected_color = color_dialog.selectedColor()
-            self.color_picker_button.setStyleSheet(f"background-color: {self.selected_color.name()}")
+    def clear(self):
+        self.grid = [[QColor(15, 18, 26) for _ in range(self.grid_size)] for _ in range(self.grid_size)]
+        self.update()
+        self.pixel_changed.emit()
 
-    def get_options(self):
-        if self.exec_() == QDialog.Accepted:
-            clock_style = self.clock_style_combo.currentText()
-            show_date = self.show_date_checkbox.isChecked()
-            show_24hr = self.show_24hr_checkbox.isChecked()
-            return clock_style, show_date, show_24hr, self.selected_color, True
-        else:
-            return None, None, None, None, False
+    def mirror_horizontal(self):
+        for y in range(self.grid_size):
+            self.grid[y].reverse()
+        self.update()
+        self.pixel_changed.emit()
 
+    def mirror_vertical(self):
+        self.grid.reverse()
+        self.update()
+        self.pixel_changed.emit()
 
-class CustomInputDialog(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle('Input')
-        self.layout = QVBoxLayout(self)
+    def flood_fill(self, target_x, target_y, new_color):
+        old_color = self.grid[target_y][target_x]
+        if old_color == new_color:
+            return
+        stack = [(target_x, target_y)]
+        while stack:
+            cx, cy = stack.pop()
+            if 0 <= cx < self.grid_size and 0 <= cy < self.grid_size:
+                if self.grid[cy][cx] == old_color:
+                    self.grid[cy][cx] = new_color
+                    stack.extend([(cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)])
+        self.update()
+        self.pixel_changed.emit()
 
-        self.label = QLabel('Name this device?', self)
-        self.layout.addWidget(self.label)
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, False)
+        w = self.width()
+        h = self.height()
+        side = min(w, h)
+        cell_size = side / self.grid_size
 
-        self.line_edit = QLineEdit(self)
-        self.layout.addWidget(self.line_edit)
+        # Draw grid cells
+        for y in range(self.grid_size):
+            for x in range(self.grid_size):
+                rect_x = int(x * cell_size)
+                rect_y = int(y * cell_size)
+                rect_w = int((x + 1) * cell_size) - rect_x
+                rect_h = int((y + 1) * cell_size) - rect_y
+                painter.fillRect(rect_x, rect_y, rect_w, rect_h, self.grid[y][x])
 
-        self.button_layout = QHBoxLayout()
-        self.yes_button = QPushButton('Yes', self)
-        self.no_button = QPushButton('No', self)
-        self.button_layout.addWidget(self.yes_button)
-        self.button_layout.addWidget(self.no_button)
-        self.layout.addLayout(self.button_layout)
+        # Grid lines (subtle)
+        pen = QPen(QColor(30, 36, 48, 120))
+        pen.setWidth(1)
+        painter.setPen(pen)
+        for i in range(self.grid_size + 1):
+            pos = int(i * cell_size)
+            painter.drawLine(pos, 0, pos, side)
+            painter.drawLine(0, pos, side, pos)
 
-        self.yes_button.clicked.connect(self.accept)
-        self.no_button.clicked.connect(self.reject)
+    def _apply_tool_at(self, event):
+        side = min(self.width(), self.height())
+        cell_size = side / self.grid_size
+        x = int(event.x() / cell_size)
+        y = int(event.y() / cell_size)
 
-    def get_input(self):
-        if self.exec_() == QDialog.Accepted:
-            return self.line_edit.text(), True
-        else:
-            return '', False
-
-class SizeDialog(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Choose Pixel Display Size")
-        layout = QVBoxLayout()
-        self.size_combo = QComboBox()
-        self.size_combo.addItems(["16x16", "32x32"])
-        layout.addWidget(self.size_combo)
-        button_box = QDialogButtonBox(QDialogButtonBox.Ok)
-        button_box.accepted.connect(self.accept)
-        layout.addWidget(button_box)
-        self.setLayout(layout)
-
-    def get(self):
-        if self.exec_() == QDialog.Accepted:
-            return self.size_combo.currentText().split("x")[0], True
-        else:
-            return "16", False
-
-
-
-class TextStyleDialog(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle('Text Settings')
-        self.layout = QVBoxLayout(self)
-
-        # Initialize selected colors
-        self.selected_text_color = None
-        self.selected_bg_color = None
-
-        # Text input
-        self.text_label = QLabel('Enter Text:')
-        self.text_input = QLineEdit(self)
-        self.layout.addWidget(self.text_label)
-        self.layout.addWidget(self.text_input)
-
-        # Text Size
-        self.text_size_label = QLabel('Text Size:')
-        self.text_size_combo = QComboBox(self)
-        self.text_size_combo.addItems(["16", "32"])
-        self.layout.addWidget(self.text_size_label)
-        self.layout.addWidget(self.text_size_combo)
-
-        # Text Mode
-        self.text_mode_label = QLabel('Text Style:')
-        self.text_mode_combo = QComboBox(self)
-        self.text_mode_combo.addItems(["", "Left", "Right", "Up", "Down", "Blink", "Breathe", "Snowflake", "Laser"])
-        self.layout.addWidget(self.text_mode_label)
-        self.layout.addWidget(self.text_mode_combo)
-
-        # Text Speed
-        self.text_speed_label = QLabel('Text Speed:')
-        self.text_speed_slider = QSlider(Qt.Horizontal)
-        self.text_speed_slider.setRange(0, 100)
-        self.layout.addWidget(self.text_speed_label)
-        self.layout.addWidget(self.text_speed_slider)
-
-        # Text Color Mode
-        self.text_color_mode_label = QLabel('Text Color Effect:')
-        self.text_color_mode_combo = QComboBox(self)
-        self.text_color_mode_combo.addItems(["", "Solid", "Rainbow", "Sunset", "Neon", "Calm"])
-        self.layout.addWidget(self.text_color_mode_label)
-        self.layout.addWidget(self.text_color_mode_combo)
-
-        # Text Color
-        self.text_color_button = QPushButton('Choose Text Color')
-        self.text_color_button.clicked.connect(self.choose_text_color)
-        self.layout.addWidget(self.text_color_button)
-
-        # Text Background Mode
-        self.text_bg_mode_label = QLabel('Background Style:')
-        self.text_bg_mode_combo = QComboBox(self)
-        self.text_bg_mode_combo.addItems(["None", "Solid"])
-        self.layout.addWidget(self.text_bg_mode_label)
-        self.layout.addWidget(self.text_bg_mode_combo)
-
-        # Text Background Color
-        self.text_bg_color_button = QPushButton('Choose Background Color')
-        self.text_bg_color_button.clicked.connect(self.choose_bg_color)
-        self.layout.addWidget(self.text_bg_color_button)
-
-        # Dialog buttons
-        self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, self)
-        self.button_box.accepted.connect(self.accept)
-        self.button_box.rejected.connect(self.reject)
-        self.layout.addWidget(self.button_box)
-
-    def choose_text_color(self):
-        color_dialog = QColorDialog(self)
-        if color_dialog.exec_() == QColorDialog.Accepted:
-            self.selected_text_color = color_dialog.selectedColor()
-            self.text_color_button.setStyleSheet(f"background-color: {self.selected_text_color.name()}")
-
-    def choose_bg_color(self):
-        color_dialog = QColorDialog(self)
-        if color_dialog.exec_() == QColorDialog.Accepted:
-            self.selected_bg_color = color_dialog.selectedColor()
-            self.text_bg_color_button.setStyleSheet(f"background-color: {self.selected_bg_color.name()}")
-
-    def get_settings(self):
-        if self.exec_() == QDialog.Accepted:
-            return (
-                self.text_input.text(),
-                int(self.text_size_combo.currentText()),
-                self.text_mode_combo.currentIndex(),
-                self.text_speed_slider.value(),
-                self.text_color_mode_combo.currentIndex(),
-                self.selected_text_color,
-                self.text_bg_mode_combo.currentIndex(),
-                self.selected_bg_color,
-            )
-        else:
-            return None
-
-class ColorControlDialog(QDialog):
-    accepted = pyqtSignal(str, bool)
-
-    def __init__(self, parent=None, mac_address=None):
-        super().__init__(parent)
-        self.setWindowTitle('Color Control')
-        self.mac_address = mac_address
-        self.layout = QVBoxLayout(self)
-
-        # Initialize buttons
-        self.fullscreen_color_button = QPushButton('Fullscreen Color')
-        self.pixel_paint_button = QPushButton('Pixel Paint')
-
-        # Connect buttons to their respective slots
-        self.fullscreen_color_button.clicked.connect(lambda: self.choose_color(False))
-        self.pixel_paint_button.clicked.connect(self.open_pixel_paint_dialog)
-
-        # Add buttons to layout
-        self.layout.addWidget(self.fullscreen_color_button)
-        self.layout.addWidget(self.pixel_paint_button)
-
-        # Dialog button box (OK and Cancel)
-        self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, self)
-        self.button_box.accepted.connect(self.accept)
-        self.button_box.rejected.connect(self.reject)
-        self.layout.addWidget(self.button_box)
-
-        # Initialize variables for selected color and mode
-        self.selected_color = None
-        self.is_pixel_paint = False
-
-    def choose_color(self, is_pixel_paint):
-        color_dialog = QColorDialog(self)
-        if is_pixel_paint:
-            color_dialog.setOption(QColorDialog.ShowAlphaChannel)
-        if color_dialog.exec_() == QDialog.Accepted:
-            self.selected_color = color_dialog.selectedColor()
-            self.is_pixel_paint = is_pixel_paint
-
-    def open_pixel_paint_dialog(self):
-        dialog = PixelPaintDialog(self.mac_address)
-        dialog.exec_()
-
-    def accept(self):
-        if self.selected_color and not self.is_pixel_paint:
-            self.accepted.emit(self.selected_color.name(), self.is_pixel_paint)
-        super().accept()
-
-class PixelPaintDialog(QDialog):
-    
-    FAVORITES_KEY = "PixelPaintFavorites"
-    
-    def __init__(self, mac_address):
-        super().__init__()
-        self.mac_address = mac_address
-        self.init_ui()
-        self.load_favorites()
-        self.finished.connect(self.save_favorites)
-
-    def init_ui(self):
-        self.setWindowTitle('Pixel Paint')
-        self.setGeometry(100, 100, 800, 800)
-
-        self.current_color = QColor(0, 0, 0)
-        self.grid_size = 32
-        self.cell_size = 20
-        self.grid = [[QColor(255, 255, 255) for _ in range(self.grid_size)] for _ in range(self.grid_size)]
-        self.undo_stack = []
-        self.current_stroke = []
-        self.setWindowIcon(QIcon('gui/idmc.ico'))
-
-        layout = QVBoxLayout()
-        
-        toolbar_layout = QHBoxLayout()
-        self.color_buttons = []
-        common_colors = [  
-            ((254, 254, 254), "White"), 
-            ((255, 0, 0), "Red"), 
-            ((0, 255, 0), "Green"), 
-            ((0, 0, 255), "Blue"),
-            ((255, 255, 0), "Yellow"), 
-            ((0, 255, 255), "Cyan"), 
-            ((255, 0, 255), "Magenta") 
-        ]
-
-        for color, label_text in common_colors:
-            button = QPushButton(label_text)
-            button.setProperty('color_data', color)
-            button.setStyleSheet(f"background-color: rgb{color}; border: 2px solid transparent;")
-            button.clicked.connect(lambda _, col=color: self.set_current_color(QColor(*col)))
-            toolbar_layout.addWidget(button)
-            self.color_buttons.append(button)
-        
-        erase_button = QPushButton("Erase")
-        erase_button.setProperty('color_data', (255, 255, 255))
-        erase_button.setStyleSheet("background-color: white; border: 2px solid transparent;")
-        erase_button.clicked.connect(self.erase_cell)
-        toolbar_layout.addWidget(erase_button) 
-        self.color_buttons.append(erase_button)
-        
-        color_picker_button = QPushButton('Pick Color')
-        color_picker_button.clicked.connect(self.pick_color)
-        toolbar_layout.addWidget(color_picker_button)
-        
-        layout.addLayout(toolbar_layout)
-
-        self.favorites_list = QListWidget()
-        self.favorites_list.setMaximumWidth(200)
-        self.favorites_list.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.favorites_list.customContextMenuRequested.connect(self.show_favorites_context_menu)
-        
-        button_layout = QHBoxLayout()
-        save_button = QPushButton('Save')
-        save_button.clicked.connect(self.save_grid)
-        button_layout.addWidget(save_button)
-        
-        load_button = QPushButton('Load')
-        load_button.clicked.connect(self.load_grid)
-        button_layout.addWidget(load_button)
-        
-        clear_button = QPushButton('Clear')
-        clear_button.clicked.connect(self.clear_grid)
-        button_layout.addWidget(clear_button)
-        
-        undo_button = QPushButton('Undo')
-        undo_button.clicked.connect(self.undo)
-        button_layout.addWidget(undo_button)
-        
-        layout.addLayout(button_layout)
-
-        self.grid_widget = QGridLayout()
-        self.grid_widget.setSpacing(0)
-        self.grid_labels = []
-        for row in range(self.grid_size):
-            row_labels = []
-            for col in range(self.grid_size):
-                label = QLabel()
-                label.setFixedSize(self.cell_size, self.cell_size)
-                label.setStyleSheet("border: 1px solid black; background-color: white;")
-                label.mousePressEvent = lambda event, r=row, c=col: self.paint_cell(r, c)
-                label.mouseMoveEvent = self.mouse_move_event
-                self.grid_widget.addWidget(label, row, col)
-                row_labels.append(label)
-            self.grid_labels.append(row_labels)
-
-        grid_container = QVBoxLayout()
-        grid_container.addLayout(self.grid_widget)
-
-        layout_with_favorites = QHBoxLayout()
-        layout_with_favorites.addWidget(self.favorites_list)
-        layout_with_favorites.addLayout(grid_container)
-        layout.addLayout(layout_with_favorites)
-        
-        send_clear_layout = QHBoxLayout()
-        send_button = QPushButton('Send to Device')
-        send_button.clicked.connect(self.send_grid)
-        send_clear_layout.addWidget(send_button)
-
-        clear_device_button = QPushButton('Clear Device')
-        clear_device_button.clicked.connect(self.clear_device)
-        send_clear_layout.addWidget(clear_device_button)
-        
-        layout.addLayout(send_clear_layout)
-
-        # Close button
-        close_button = QPushButton('Close')
-        close_button.clicked.connect(self.close)
-        layout.addWidget(close_button)
-
-        self.setLayout(layout)
-    
-    def set_current_color(self, color):
-        self.current_color = color
-        for button in self.color_buttons:
-            if button.property('color_data') == (color.red(), color.green(), color.blue()):
-                button.setStyleSheet(f"background-color: rgb{color.red(), color.green(), color.blue()}; border: 2px solid gray;")
-            else:
-                button.setStyleSheet(f"background-color: rgb{button.property('color_data')}; border: 2px solid transparent;")
-
-    def pick_color(self):
-        color = QColorDialog.getColor()
-        if color.isValid():
-            self.set_current_color(color)
-    
-    def erase_cell(self):
-        self.set_current_color(QColor(255, 255, 255))
-
-    def paint_cell(self, row, col):
-        if not self.current_stroke:
-            self.undo_stack.append([])
-        self.current_stroke.append((row, col))
-        self.grid[row][col] = self.current_color
-        self.update_cell_style(row, col)
-    
-    def mouse_move_event(self, event):
-        if event.buttons() & Qt.LeftButton:
-            pos_in_dialog = self.mapFromGlobal(event.globalPos())
-            for row in range(self.grid_size):
-                for col in range(self.grid_size):
-                    if self.grid_labels[row][col].geometry().contains(pos_in_dialog):
-                        self.paint_cell(row, col)
-                        return
+        if 0 <= x < self.grid_size and 0 <= y < self.grid_size:
+            if self.tool == "pencil":
+                self.grid[y][x] = self.current_color
+                self.update()
+                self.pixel_changed.emit()
+            elif self.tool == "eraser":
+                self.grid[y][x] = QColor(15, 18, 26)
+                self.update()
+                self.pixel_changed.emit()
+            elif self.tool == "fill":
+                self.flood_fill(x, y, self.current_color)
+            elif self.tool == "picker":
+                self.current_color = self.grid[y][x]
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            pos_in_dialog = self.mapFromGlobal(event.globalPos())
-            for row in range(self.grid_size):
-                for col in range(self.grid_size):
-                    if self.grid_labels[row][col].geometry().contains(pos_in_dialog):
-                        self.paint_cell(row, col)
-                        return
-    
+            self.is_drawing = True
+            self._apply_tool_at(event)
+
+    def mouseMoveEvent(self, event):
+        if self.is_drawing and (event.buttons() & Qt.LeftButton):
+            self._apply_tool_at(event)
+
     def mouseReleaseEvent(self, event):
-        if self.current_stroke:
-            self.undo_stack[-1].extend(self.current_stroke)
-            self.current_stroke = []
-    
-    def save_grid(self):
-        name, ok = QInputDialog.getText(self, 'Save Grid', 'Enter a name for this favorite:')
-        if ok and name:
-            self.favorites_list.addItem(name)
-            settings = QSettings("MyCompany", self.FAVORITES_KEY)
-            settings.setValue(name, self.grid)
-            self.save_favorites()
+        if event.button() == Qt.LeftButton:
+            self.is_drawing = False
 
-    def load_grid(self):
-        current_item = self.favorites_list.currentItem()
-        if current_item:
-            name = current_item.text()
-            settings = QSettings("MyCompany", self.FAVORITES_KEY)
-            loaded_grid = settings.value(name)
-            if loaded_grid:
-                self.grid = loaded_grid
-                for row in range(self.grid_size):
-                    for col in range(self.grid_size):
-                        self.update_cell_style(row, col)
-            else:
-                QMessageBox.warning(self, 'Load Grid', f'Grid "{name}" not found.')
-    
-    def clear_grid(self):
-        self.undo_stack.append(copy.deepcopy(self.grid))
-        for row in range(self.grid_size):
-            for col in range(self.grid_size):
-                self.grid[row][col] = QColor(255, 255, 255)
-                self.update_cell_style(row, col)
-        self.undo_stack[-1].append(None)
-    
-    def undo(self):
-        if self.undo_stack:
-            stroke_to_undo = self.undo_stack.pop()
-            if stroke_to_undo and stroke_to_undo[-1] is None:
-                stroke_to_undo.pop()
-                self.grid = copy.deepcopy(stroke_to_undo)
-                for row in range(self.grid_size):
-                    for col in range(self.grid_size):
-                        self.update_cell_style(row, col)
-            else:
-                for row, col in stroke_to_undo:
-                    self.grid[row][col] = QColor(255, 255, 255)
-                    self.update_cell_style(row, col)
-    
-    def send_grid(self):
-        commands = []
-        for row in range(self.grid_size):
-            for col in range(self.grid_size):
-                color = self.grid[row][col]
-                if color != QColor(255, 255, 255):
-                    command = f"{col}-{row}-{color.red()}-{color.green()}-{color.blue()}"
-                    commands.append(command)
-        if commands:
-            self.send_command_to_device(commands)
-        else:
-            QMessageBox.warning(self, 'Send Grid', 'No pixels to send.')
 
-    def send_command_to_device(self, commands):
-        command_array = ["--address", self.mac_address]
-        for command in commands:
-            command_array.extend(["--pixel-color", command])
-        self.run_command(command_array)
-        
-    def send_clear_command_to_device(self, commands):
-        command_array = ["--address", self.mac_address]
-        self.run_command(command_array)
-
-    def run_command(self, command_array:list):
-        process = QProcess(self)
-        process.start(shell_cmd, [*shell_init_args, *command_array])
-        process.waitForFinished()
-
-    def clear_device(self):
-        rgb_str = "0-0-0"
-        self.send_clear_command_to_device(["--fullscreen-color", rgb_str.replace('#', '')])
-
-    def update_cell_style(self, row, col):
-        color = self.grid[row][col]
-        border_style = "border: 1px solid black;" if color == QColor(255, 255, 255) else ""
-        self.grid_labels[row][col].setStyleSheet(f"background-color: {color.name()}; {border_style}")
-    
-    def load_favorites(self):
-        settings = QSettings("MyCompany", self.FAVORITES_KEY)
-        favorite_names = settings.value("favoriteNames", [])
-        for name in favorite_names:
-            self.favorites_list.addItem(name)
-
-    def save_favorites(self):
-        settings = QSettings("MyCompany", self.FAVORITES_KEY)
-        favorite_names = [self.favorites_list.item(i).text() for i in range(self.favorites_list.count())]
-        settings.setValue("favoriteNames", favorite_names)
-        
-    def show_favorites_context_menu(self, pos):
-        item = self.favorites_list.itemAt(pos)
-        if item:
-            menu = QMenu(self)
-            load_action = menu.addAction("Load")
-            delete_action = menu.addAction("Delete")
-            action = menu.exec_(self.favorites_list.mapToGlobal(pos))
-            if action == load_action:
-                self.load_grid()
-            elif action == delete_action:
-                self.delete_favorite(item)
-
-    def delete_favorite(self, item):
-        name = item.text()
-        settings = QSettings("MyCompany", self.FAVORITES_KEY)
-        settings.remove(name)
-        self.favorites_list.takeItem(self.favorites_list.row(item))
-        self.save_favorites()
-
-class ScoreboardDialog(QDialog):
-    def __init__(self, device_page):
-        super().__init__()
-        self.device_page = device_page
-        self.left_score = 0
-        self.right_score = 0
-        self.init_ui()
-
-    def init_ui(self):
-        self.setWindowTitle("Scoreboard")
-        self.setWindowIcon(QIcon('gui/idmc.ico')) # Set title bar icon
-        self.setFixedSize(300, 200)
-        layout = QGridLayout()
-
-        # Score Labels (Centered)
-        self.left_score_label = QLabel(str(self.left_score))
-        self.left_score_label.setAlignment(Qt.AlignCenter)  # Center the label horizontally
-        self.left_score_label.setFont(QFont("Arial", 36, QFont.Bold))
-        layout.addWidget(self.left_score_label, 1, 0)
-
-        self.right_score_label = QLabel(str(self.right_score))
-        self.right_score_label.setAlignment(Qt.AlignCenter)  # Center the label horizontally
-        self.right_score_label.setFont(QFont("Arial", 36, QFont.Bold))
-        layout.addWidget(self.right_score_label, 1, 1)  # Changed column to 1 for centering
-
-        # Increment Buttons (Above)
-        left_inc_button = QPushButton("+1")
-        left_inc_button.clicked.connect(lambda: self.adjust_score(True, True))  # True for left, True for increment
-        layout.addWidget(left_inc_button, 0, 0)  # Row 0 for above
-
-        right_inc_button = QPushButton("+1")
-        right_inc_button.clicked.connect(lambda: self.adjust_score(False, True))  # False for right, True for increment
-        layout.addWidget(right_inc_button, 0, 1)  # Row 0 for above
-
-        # Decrement Buttons (Below)
-        left_dec_button = QPushButton("-1")
-        left_dec_button.clicked.connect(lambda: self.adjust_score(True, False))  # True for left, False for decrement
-        layout.addWidget(left_dec_button, 2, 0)  # Row 2 for below
-
-        right_dec_button = QPushButton("-1")
-        right_dec_button.clicked.connect(lambda: self.adjust_score(False, False))  # False for right, False for decrement
-        layout.addWidget(right_dec_button, 2, 1)  # Row 2 for below
-
-        self.setLayout(layout)
-
-    def adjust_score(self, is_left, is_inc):
-        if is_left:
-            if is_inc or self.left_score > 0:  # Increment only if score is above 0 or we are incrementing
-                self.left_score += 1 if is_inc else -1
-                self.left_score_label.setText(str(self.left_score))
-        else:
-            if is_inc or self.right_score > 0:  # Increment only if score is above 0 or we are incrementing
-                self.right_score += 1 if is_inc else -1
-                self.right_score_label.setText(str(self.right_score))
-
-        self.send_score()
-
-    def send_score(self):
-        score_str = f"{self.left_score}-{self.right_score}"
-        self.device_page.run_command(["--address", self.device_page.mac_address, "--scoreboard", score_str])
-        
-# --- Main App Classes ---
-class DevicePage(QWidget):
-   
-    # --- UI  Setup ---
-    def __init__(self, main_window, friendly_name, device_name, mac_address):
-        super().__init__()
-        self.main_window = main_window
-        self.friendly_name = friendly_name
-        self.device_name = device_name
-        self.mac_address = mac_address
-        self.first_output_received = False
-        self.last_command = None
-        self.clock_styles = ['Default', 'Christmas', 'Racing', 'Inverted Full Screen',
-                             'Animated Hourglass', 'Frame 1', 'Frame 2', 'Frame 3']
-        self.weatherapi_api_key = None
-        self.init_ui()
-        self.flip_screen_state = False
-
-    def init_ui(self):
-        layout = QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-
-        header_layout = QHBoxLayout()
-        header_layout.setContentsMargins(0, 0, 0, 0)
-        header_layout.setSpacing(0)
-
-        delete_button = QPushButton("Delete", self)
-        delete_button.clicked.connect(self.delete_device)
-        header_layout.addWidget(delete_button, 0)
-
-        label = QLabel(f"       {self.friendly_name}         MAC: {self.mac_address}", self)
-        label.setContentsMargins(0, 0, 0, 0)
-        header_layout.addWidget(label, 1)
-
-        back_button = QPushButton("Back", self)
-        back_button.clicked.connect(self.go_back_to_homepage)
-        header_layout.addWidget(back_button, 0)
-        layout.addLayout(header_layout)
-
-        # Grid layout for buttons
-        grid_layout = QGridLayout()
-        self.action_buttons = []
-        actions = [
-            ("Reset", self.reset),
-            ("Clock Style", self.clock_control),
-            ("Sync Time", self.sync_time),
-            ("Set Time", self.set_time),
-            ("Set Text", self.set_text),
-            ("Screen On", lambda: self.screen_control("on")),
-            ("Screen Off", lambda: self.screen_control("off")),
-            ("Stop Watch", self.chronograph_control),
-            ("Countdown Timer", lambda: self.countdown_control(1)),
-            ("Color Studio", self.color_control),
-            ("Scoreboard", self.open_scoreboard),
-            ("Set Image", self.set_image),
-            ("Set GIF", self.set_gif),
-            ("Set Raw Image", self.set_image_unprocessed),
-            ("Set Raw GIF", self.set_gif_unprocessed),
-            ("Set Weather API-Key", self.set_weather_api_key),
-            ("Set Weather", self.set_weather),
-            ("Set Weather GIF", self.set_weather_gif),
-
-            
-        ]
-
-        for index, (text, func) in enumerate(actions):
-            button = QPushButton(text, self)
-            button.clicked.connect(func)
-            grid_layout.addWidget(button, index // 5, index % 5)
-            self.action_buttons.append(button)
-
-        layout.addLayout(grid_layout)
-        
-        console_widget = QWidget()
-        console_layout = QVBoxLayout(console_widget)
-        console_label = QLabel("Console:")
-        console_label.setFont(QFont("Arial", 12, QFont.Bold))
-        console_layout.addWidget(console_label)
-        self.console_output = QPlainTextEdit(self)
-        self.console_output.setReadOnly(True)
-        console_layout.addWidget(self.console_output)
-        layout.addWidget(console_widget)
-
-        self.setLayout(layout)
-   
-    # --- Helpers ---
-    def go_back_to_homepage(self):
-        self.main_window.stacked_widget.setCurrentWidget(self.main_window.homepage)
-
-    def run_command(self, args):
-        self.console_output.clear()
-        self.process = QProcess(self)
-        self.process.setProcessChannelMode(QProcess.MergedChannels)
-        self.process.readyRead.connect(self.handle_ready_read)
-        self.process.finished.connect(self.process_finished)
-        self.process.start(shell_cmd, [*shell_init_args, *args])
-
-    def handle_ready_read(self):
-        data = self.process.readAll()
-        try:
-            stdout = bytes(data).decode("utf8").strip()
-        except Exception:
-            stdout = bytes(data).decode("latin1").strip()
-       
-        current_command = self.process.arguments()[2:]
-        output_lines = stdout.splitlines()
-       
-        if output_lines:
-            first_line = output_lines[0]
-            rest_of_output = '\n'.join(output_lines[1:])
-           
-            if self.last_command != current_command:
-                self.console_output.appendPlainText(f"Command: {' '.join(current_command)}\n")
-                self.last_command = current_command
-           
-            self.console_output.appendPlainText(f"Output: {first_line}\n")
-           
-            if rest_of_output:
-                self.console_output.appendPlainText(rest_of_output + '\n')
-        else:
-            self.console_output.appendPlainText(f"Command: {' '.join(current_command)}\nOutput:\n")
-       
-        self.last_command = current_command
-   
-    def process_finished(self):
-        pass
-   
-    def hex_to_rgb(self, hex_color):
-        hex_color = hex_color.lstrip('#')
-        if len(hex_color) == 6:
-            return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-        elif len(hex_color) == 3:
-            return tuple(int(hex_color[i]*2, 16) for i in range(3))
-        else:
-            raise ValueError("Invalid hex color format")
-   
-    def handle_color_control_accepted(self, color_name):
-        rgb_str = color_name.replace('#', '')
-        self.run_command(["--address", self.mac_address, "--fullscreen-color", rgb_str])
-   
-    
-    # --- Device Button Actions ---
-    def delete_device(self):
-        confirmation = QMessageBox.question(self, "Delete Device", f"Are you sure you want to delete {self.friendly_name}?",
-                                            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        if confirmation == QMessageBox.Yes:
-            for i in range(self.main_window.configuration_page.device_list.count()):
-                item = self.main_window.configuration_page.device_list.item(i)
-                if item.toolTip() == self.mac_address:
-                    self.main_window.configuration_page.device_list.takeItem(i)
-                    break
-                
-            button_to_remove = self.main_window.device_buttons.pop(self.mac_address, None)
-            if button_to_remove:
-                self.main_window.homepage_layout.removeWidget(button_to_remove)
-                button_to_remove.deleteLater()
-
-            del self.main_window.device_pages[self.mac_address]
-            self.main_window.save_device_settings()
-            self.main_window.stacked_widget.setCurrentWidget(self.main_window.homepage)
-
-    def clock_control(self):
-            dialog = ClockStyleDialog(self)
-            clock_style, show_date, show_24hr, color, ok_pressed = dialog.get_options()
-
-            if ok_pressed:
-                args = ["--address", self.mac_address, "--clock", str(self.clock_styles.index(clock_style)), "--sync-time"]
-                if show_date:
-                    args.append("--clock-with-date")
-                if show_24hr:
-                    args.append("--clock-24h")
-                if color:
-                    rgb_str = f"{color.red()}-{color.green()}-{color.blue()}"
-                    args.append(f"--clock-color={rgb_str}")  
-                self.run_command(args)
-
-    def sync_time(self):
-        self.run_command(["--address", self.mac_address, "--sync-time"])
-
-    def set_time(self):
-        time, ok_pressed = QInputDialog.getText(self, "Set Time", "Enter the time (DD-MM-YYYY-HH:MM:SS):")
-        if ok_pressed:
-            self.run_command(["--address", self.mac_address, "--set-time", time])
-
-
-    def screen_control(self, state):
-        self.run_command(["--address", self.mac_address, "--screen", state])
-
-    def chronograph_control(self):
-            options = ['Reset', '(Re)Start', 'Pause', 'Continue after Pause']
-            default_index = 1
-            option, ok_pressed = QInputDialog.getItem(self, "Stop Watch", "Select an option:", options, default_index, False)                            
-            if ok_pressed:
-                self.run_command(["--address", self.mac_address, "--chronograph", str(options.index(option))])
-               
-    def countdown_control(self, state):
-        options = ['Disable', 'Start', 'Pause', 'Restart']
-        option, ok_pressed = QInputDialog.getItem(self, "Countdown Control",
-                                                "Select an option:", options, 0, False)
-        if ok_pressed and option == 'Start':
-            time, ok_pressed = QInputDialog.getText(self, "Set Time", "Enter the Countdown time:\n\n(eg: 5min. 30sec. = 5-30)")
-        else:
-            time = None
-
-        if ok_pressed:
-            command_args = ["--address", self.mac_address, "--countdown", str(options.index(option))]
-            if time is not None:
-                command_args.extend(["--countdown-time", time])
-
-            self.run_command(command_args)
-        else:
-            print("Countdown canceled, no command will be executed.")
-
-	
-    def set_text(self):
-        dialog = TextStyleDialog(self)
-        settings = dialog.get_settings()
-        if settings is not None:
-            text, text_size, text_mode, text_speed, text_color_mode_index, text_color, text_bg_mode_index, text_bg_color = settings
-           
-            text_mode = str(text_mode)
-            text_color_mode = str(text_color_mode_index)
-            text_bg_mode = str(text_bg_mode_index)
-
-            args = ["--address", self.mac_address, "--set-text", text, "--text-size", str(text_size), "--text-mode", text_mode, "--text-speed", str(text_speed), "--text-color-mode", text_color_mode]  
-           
-            if text_color:
-                rgb_text = f"{text_color.red()}-{text_color.green()}-{text_color.blue()}"
-                args.append(f"--text-color={rgb_text}")
-            if text_bg_color:
-                rgb_bg = f"{text_bg_color.red()}-{text_bg_color.green()}-{text_bg_color.blue()}"
-                args.append(f"--text-bg-color={rgb_bg}")
-            if text_bg_mode != "None":  
-                args.append(f"--text-bg-mode={text_bg_mode}")  
-           
-            self.run_command(args)
-        else:
-            print("No text settings were provided.")
-
-    def color_control(self):
-        dialog = ColorControlDialog(self, self.mac_address)
-        if dialog.exec_() == QDialog.Accepted and dialog.selected_color:
-            r, g, b = dialog.selected_color.red(), dialog.selected_color.green(), dialog.selected_color.blue()
-            rgb_str = f"{r}-{g}-{b}"
-
-            self.run_command(["--address", self.mac_address, "--fullscreen-color", rgb_str])
-
-    def open_scoreboard(self):
-        dialog = ScoreboardDialog(self)
-        dialog.exec_()
-
-    def set_image(self):
-        options = QFileDialog.Options()
-        options |= QFileDialog.ReadOnly
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select Image", "", "PNG Files (*.png);;All Files (*)", options=options)
-
-        if file_path:
-            # Image Size Selection Dialog
-            size_dialog = QDialog(self)
-            size_dialog.setWindowTitle("Pick Size")
-            layout = QVBoxLayout()
-            size_combo = QComboBox()
-            size_combo.addItems(["16x16", "32x32"])
-            layout.addWidget(size_combo)
-            button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-            button_box.accepted.connect(size_dialog.accept)
-            button_box.rejected.connect(size_dialog.reject)
-            layout.addWidget(button_box)
-            size_dialog.setLayout(layout)
-
-            if size_dialog.exec_() == QDialog.Accepted:
-                image_size = size_combo.currentText().split("x")[0]
-                self.run_command(["--address", self.mac_address, "--image", "true", "--set-image", file_path, "--process-image", image_size])
-
-    def set_gif(self):
-        confirmation = QMessageBox.question(self, "GIF Notice", "All GIFs are processed by default to ensure maximum compatibility. \n\nThis doesn't always work for all GIFs. \n\nGIFs closer to 32x32 or 16x16 have better chances of working.",
-                                            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-
-        if confirmation == QMessageBox.Yes:
-            options = QFileDialog.Options()
-            options |= QFileDialog.ReadOnly
-            file_path, _ = QFileDialog.getOpenFileName(self, "Select GIF", "", "GIF Files (*.gif);;All Files (*)", options=options)
-
-            if file_path:
-                size_dialog = QDialog(self)
-                size_dialog.setWindowTitle("Choose GIF Size")
-                layout = QVBoxLayout()
-                size_combo = QComboBox()
-                size_combo.addItems(["16x16", "32x32"])
-                layout.addWidget(size_combo)
-                button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-                button_box.accepted.connect(size_dialog.accept)
-                button_box.rejected.connect(size_dialog.reject)
-                layout.addWidget(button_box)
-                size_dialog.setLayout(layout)
-
-                if size_dialog.exec_() == QDialog.Accepted:
-                    image_size = size_combo.currentText().split("x")[0]
-                    self.run_command(["--address", self.mac_address, "--set-gif", file_path, "--process-gif", image_size])
-
-    def set_image_unprocessed(self):
-        options = QFileDialog.Options()
-        options |= QFileDialog.ReadOnly
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select Image", "", "PNG Files (*.png);;All Files (*)", options=options)
-
-        if file_path:
-            self.run_command(["--address", self.mac_address, "--image", "true", "--set-image", file_path])
-
-    def set_gif_unprocessed(self):
-        options = QFileDialog.Options()
-        options |= QFileDialog.ReadOnly
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select GIF", "", "GIF Files (*.gif);;All Files (*)", options=options)
-
-        if file_path:
-            self.run_command(["--address", self.mac_address, "--set-gif", file_path])
-
-    def set_weather_api_key(self):
-        response, responded = QInputDialog.getText(self, "API Key", "Enter your 'https://weatherapi.com' api key")
-        if responded:
-            self.weatherapi_api_key = response
-        else:
-            print("No api key was provided, this is needed for the weather functionality.")
-
-    def set_weather(self):
-        city, ok_pressed = QInputDialog.getText(self, "Set Weather", "Remember to set the API key first. \nEnter the city query, e.g. name:")
-        size, ignore     = SizeDialog().get()
-
-        if ok_pressed and city:
-            self.run_command([
-                "--address", self.mac_address,
-                "--process-image", str(size),
-                "--weather-api-key", self.weatherapi_api_key,
-                "--weather-image-query", city,
-            ])
-
-    def set_weather_gif(self):
-        city, ok_pressed = QInputDialog.getText(self, "Set Weather", "Remember to set the API key first. \nEnter the city query, e.g. name:")
-        size, ignore     = SizeDialog().get()
-
-        if ok_pressed and city:
-            self.run_command([
-                "--address", self.mac_address,
-                "--process-image", str(size),
-                "--weather-api-key", self.weatherapi_api_key,
-                "--weather-gif-query", city,
-            ])
-
-    def reset(self):
-        self.run_command([
-            "--address", self.mac_address,
-            "--reset",
-        ])
-        
-
-class ConfigurationPage(QWidget):
-    def __init__(self, main_window):
-        super().__init__()
-        self.main_window = main_window
-        self.device_name = ""
-
-        self.layout = QHBoxLayout()
-        self.left_layout = QVBoxLayout()
-
-        console_label = QLabel("Console:")  
-        console_label.setFont(QFont("Arial", 12, QFont.Bold))
-        self.left_layout.addWidget(console_label)
-
-        self.console_output = QPlainTextEdit(self)
-        self.console_output.setReadOnly(True)
-        self.left_layout.addWidget(self.console_output)
-
-        instruction_label = QLabel('Select a device from the list to add:')
-        instruction_label.setFont(QFont("Arial", 12, QFont.Bold))
-        self.left_layout.addWidget(instruction_label)
-
-        self.device_list = QListWidget()
-        self.device_list.itemClicked.connect(self.device_selected)
-        self.left_layout.addWidget(self.device_list)
-
-        self.layout.addLayout(self.left_layout)
-
-        self.right_layout = QVBoxLayout()
-       
-        back_button = QPushButton('Back')
-        back_button.clicked.connect(self.go_back_to_homepage)
-        back_button.setFixedSize(150, 50)
-        self.right_layout.addWidget(back_button)
-       
-        add_selected_device_button = QPushButton('Add Selected Device')
-        add_selected_device_button.clicked.connect(self.add_selected_device)
-        add_selected_device_button.setFixedSize(150, 50)
-        self.right_layout.addWidget(add_selected_device_button)
-
-        self.layout.addLayout(self.right_layout)
-        self.setLayout(self.layout)
-
-    def device_selected(self, item):
-        self.selected_device = item.text()
-
-    def add_selected_device(self):
-        if hasattr(self, 'selected_device'):
-            if self.selected_device in self.main_window.device_buttons:
-                QMessageBox.warning(self, 'Device Already Added', f'Device "{self.selected_device}" is already added to the homepage.')
-                return
-
-            dialog = CustomInputDialog(self)
-            friendly_name, ok = dialog.get_input()
-            if ok and friendly_name:
-                mac_address = self.device_list.currentItem().toolTip()
-            else:
-                mac_address = self.device_list.currentItem().toolTip()
-                friendly_name = self.selected_device
-
-            self.main_window.add_device_to_homepage(friendly_name, mac_address)
-            QMessageBox.information(self, 'Device Added', f'Device "{friendly_name}" has been added.')
-            self.main_window.save_device_settings()
-        else:
-            QMessageBox.warning(self, 'No Device Selected', 'Please select a device from the list.')
-
-    def go_back_to_homepage(self):
-        self.main_window.stacked_widget.setCurrentWidget(self.main_window.homepage)
-
-    def update_device_name(self, new_name):
-        self.device_name = new_name
-       
-    def save_device_name(self):
-        self.main_window.save_device_settings()
-   
-class MainWindow(QWidget):
+# -------------------------------------------------------------
+# MAIN WINDOW: MODERN iDOTMATRIX CONTROLLER PRO
+# -------------------------------------------------------------
+class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('iDotMatrix Controller')
-        self.setWindowIcon(QIcon('gui/idmc.ico'))
+        self.setWindowTitle("iDotMatrix Studio Pro")
+        self.resize(1180, 820)
+        self.setMinimumSize(960, 680)
+        if os.path.exists(ICON_PATH):
+            self.setWindowIcon(QIcon(ICON_PATH))
 
-        screen_geometry = QApplication.desktop().availableGeometry()
-        self.screen_center = screen_geometry.center()
+        # Core Services
+        self.ble = BleController()
+        self.ble.status_changed.connect(self.on_ble_status)
+        self.ble.device_discovered.connect(self.on_device_discovered)
+        self.ble.scan_finished.connect(self.on_scan_finished)
+        self.ble.command_completed.connect(self.on_command_completed)
+        self.ble.start()
 
-        self.layout = QVBoxLayout()
-        self.layout.setAlignment(Qt.AlignTop)
+        # State
+        self.devices_dict = {}  # mac -> name
+        self.current_mac = None
+        self.is_transmitting_hardware = False
+        self.is_carousel_running = False
+        self.playlist_images = []
+        self.playlist_index = 0
 
-        header_font = QFont("Arial", 18, QFont.Bold)
-        header_label = QLabel('iDotMatrix Controller')
-        header_label.setFont(header_font)
-        self.layout.addWidget(header_label)
+        # DIY Frames for animation
+        self.diy_frames: List[Image.Image] = []
+        self.diy_frame_idx = 0
+        self.diy_anim_timer = QTimer(self)
+        self.diy_anim_timer.timeout.connect(self.step_diy_animation)
 
-        self.stacked_widget = QStackedWidget()
-        self.layout.addWidget(self.stacked_widget)
+        # Snake mini-game engine
+        self.snake_engine = SnakeGameEngine(32)
+        self.snake_timer = QTimer(self)
+        self.snake_timer.timeout.connect(self.step_snake_game)
 
-        self.homepage = QWidget()
-        self.homepage_layout = QVBoxLayout()
-        self.homepage_layout.setAlignment(Qt.AlignCenter)
+        # Ambient & Hardware timers
+        self.hw_timer = QTimer(self)
+        self.hw_timer.timeout.connect(self.update_hardware_monitor)
+        self.hw_timer.start(1500)
 
-        add_device_button = QPushButton('Add Device')
-        add_device_button.setFixedSize(150, 50)
-        add_device_button.clicked.connect(self.show_configuration_page)
-        self.homepage_layout.addWidget(add_device_button)
+        self.carousel_timer = QTimer(self)
+        self.carousel_timer.timeout.connect(self.step_carousel)
 
-        self.homepage.setLayout(self.homepage_layout)
-        self.stacked_widget.addWidget(self.homepage)
+        self.ambient_timer = QTimer(self)
+        self.ambient_tick = 0
+        self.ambient_type = "campfire"
+        self.ambient_timer.timeout.connect(self.step_ambient_mode)
 
-        self.configuration_page = ConfigurationPage(self)
-        self.stacked_widget.addWidget(self.configuration_page)
+        # Setup Interface
+        self.setStyleSheet(MODERN_STYLESHEET)
+        self.init_ui()
+        self.load_settings()
 
-        self.setLayout(self.layout)
-        self.resize(800, 600)
-        self.center_window()
+    def closeEvent(self, event):
+        self.save_settings()
+        self.ble.stop_worker()
+        super().closeEvent(event)
 
-        self.device_pages = {}
+    # ---------------------------------------------------------
+    # UI SETUP
+    # ---------------------------------------------------------
+    def init_ui(self):
+        central_widget = QWidget(self)
+        self.setCentralWidget(central_widget)
+        main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(16, 14, 16, 14)
+        main_layout.setSpacing(12)
 
-        self.device_buttons = {}  
-        self.load_device_settings()
-       
-        self.connect_device_buttons()
+        # 1. Top Header Bar (Connection, Status, Quick Controls)
+        header_bar = self.create_header_bar()
+        main_layout.addWidget(header_bar)
 
-    def center_window(self):
-        window_size = self.frameGeometry().size()
-        x = self.screen_center.x() - window_size.width() // 2
-        y = self.screen_center.y() - window_size.height() // 2
-        self.move(x, y)
+        # 2. Main Tabbed Feature Suites
+        self.tabs = QTabWidget()
+        self.tabs.addTab(self.create_tab_overview(), "⚡ Início & Hardware")
+        self.tabs.addTab(self.create_tab_clock_weather(), "🕒 Relógio & Clima")
+        self.tabs.addTab(self.create_tab_diy_studio(), "🎨 Estúdio DIY & Animação")
+        self.tabs.addTab(self.create_tab_gallery_playlists(), "🖼️ Galeria & Playlists")
+        self.tabs.addTab(self.create_tab_text_scroll(), "✍️ Letreiro de Texto")
+        self.tabs.addTab(self.create_tab_audio_relax(), "🎵 Áudio & Relaxamento")
+        self.tabs.addTab(self.create_tab_games_utilities(), "🎮 Games & Utilitários")
+        main_layout.addWidget(self.tabs, stretch=1)
 
-    def show_configuration_page(self):
-        self.stacked_widget.setCurrentWidget(self.configuration_page)
-        self.scan_for_devices()
+        # 3. Status Footer Bar
+        self.footer_label = QLabel("Pronto.")
+        self.footer_label.setStyleSheet("color: #8b949e; font-size: 11px;")
+        main_layout.addWidget(self.footer_label)
 
-    def scan_for_devices(self):
-        self.configuration_page.console_output.clear()
-        self.output_str = ""
-        self.process = QProcess(self)
-        self.process.setProcessChannelMode(QProcess.MergedChannels)
-        self.process.readyRead.connect(self.handle_ready_read)
-        self.process.finished.connect(self.process_finished)
-        self.process.start(shell_cmd, [*shell_init_args, "--scan"])
+    # --- Header Bar ---
+    def create_header_bar(self) -> QWidget:
+        header = QFrame()
+        header.setObjectName("HeaderBar")
+        header.setStyleSheet("background-color: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 6px 12px;")
+        layout = QHBoxLayout(header)
+        layout.setContentsMargins(8, 6, 8, 6)
+        layout.setSpacing(14)
 
-    def handle_ready_read(self):
-        data = self.process.readAll()
-        try:
-            stdout = bytes(data).decode("utf8")
-        except Exception:
-            stdout = bytes(data).decode("latin1")
+        # Logo / Brand
+        title_box = QHBoxLayout()
+        title_icon = QLabel("💡")
+        title_icon.setFont(QFont("Segoe UI", 16))
+        title_text = QLabel("iDotMatrix Pro")
+        title_text.setFont(QFont("Segoe UI", 14, QFont.Bold))
+        title_text.setStyleSheet("color: #58a6ff;")
+        title_box.addWidget(title_icon)
+        title_box.addWidget(title_text)
+        layout.addLayout(title_box)
 
-        self.output_str += stdout
-        self.configuration_page.console_output.appendPlainText(stdout)
+        # Device selector
+        self.device_combo = QComboBox()
+        self.device_combo.setMinimumWidth(200)
+        self.device_combo.currentIndexChanged.connect(self.on_device_selected)
+        layout.addWidget(self.device_combo)
 
-        device_name_pattern = re.compile(r"found device ([\dA-F:]+) with name (\S+)")
-        matches = device_name_pattern.findall(stdout)
-        if matches:
-            self.configuration_page.device_list.clear()
-            for mac_address, device_name in matches:
-                item = QListWidgetItem(device_name)
-                self.configuration_page.device_list.addItem(item)
-                item.setToolTip(mac_address)
+        self.btn_scan = QPushButton("🔍 Buscar")
+        self.btn_scan.clicked.connect(self.start_scan)
+        layout.addWidget(self.btn_scan)
 
-    def process_finished(self):
-        pass
+        # Connect / Disconnect button
+        self.btn_connect = QPushButton("Conectar")
+        self.btn_connect.setProperty("class", "Primary")
+        self.btn_connect.clicked.connect(self.toggle_connection)
+        layout.addWidget(self.btn_connect)
 
-    def add_device_to_homepage(self, friendly_name, mac_address):
-        if mac_address not in self.device_buttons:
-            device_button = QPushButton(friendly_name)
-            device_button.setToolTip(mac_address)
-            device_button.setFixedSize(150, 50)
-            self.homepage_layout.addWidget(device_button)
-            self.device_buttons[mac_address] = device_button
+        # Status badge
+        self.status_badge = QLabel("🔴 Desconectado")
+        self.status_badge.setStyleSheet("color: #f85149; font-weight: bold; padding: 4px 10px; background: #21262d; border-radius: 12px;")
+        layout.addWidget(self.status_badge)
+
+        layout.addStretch()
+
+        # Quick Screen power & Brightness
+        lbl_bright = QLabel("Brilho:")
+        layout.addWidget(lbl_bright)
+
+        self.slider_brightness = QSlider(Qt.Horizontal)
+        self.slider_brightness.setRange(5, 100)
+        self.slider_brightness.setValue(80)
+        self.slider_brightness.setFixedWidth(100)
+        self.slider_brightness.sliderReleased.connect(self.on_brightness_changed)
+        layout.addWidget(self.slider_brightness)
+
+        self.btn_screen_toggle = QPushButton("☀️ Tela On/Off")
+        self.screen_on_state = True
+        self.btn_screen_toggle.clicked.connect(self.toggle_screen_power)
+        layout.addWidget(self.btn_screen_toggle)
+
+        return header
+
+    # ---------------------------------------------------------
+    # TAB 1: OVERVIEW & HARDWARE MONITOR
+    # ---------------------------------------------------------
+    def create_tab_overview(self) -> QWidget:
+        widget = QWidget()
+        layout = QHBoxLayout(widget)
+        layout.setSpacing(16)
+
+        # Left Column: PC Hardware Stats Cards
+        left_col = QVBoxLayout()
+        left_col.setSpacing(12)
+
+        lbl_section = QLabel("💻 Monitor de Hardware do Computador")
+        lbl_section.setFont(QFont("Segoe UI", 13, QFont.Bold))
+        left_col.addWidget(lbl_section)
+
+        # CPU Card
+        self.card_cpu = QFrame()
+        self.card_cpu.setProperty("class", "Card")
+        cpu_l = QVBoxLayout(self.card_cpu)
+        self.lbl_cpu_title = QLabel("Processador (CPU): 0%")
+        self.lbl_cpu_title.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        self.bar_cpu = QProgressBar()
+        self.bar_cpu.setRange(0, 100)
+        self.bar_cpu.setStyleSheet("QProgressBar::chunk { background-color: #00e5ff; }")
+        self.lbl_cpu_temp = QLabel("Temp CPU: --°C")
+        self.lbl_cpu_temp.setStyleSheet("color: #8b949e; font-size: 11px;")
+        cpu_l.addWidget(self.lbl_cpu_title)
+        cpu_l.addWidget(self.bar_cpu)
+        cpu_l.addWidget(self.lbl_cpu_temp)
+        left_col.addWidget(self.card_cpu)
+
+        # GPU Card
+        self.card_gpu = QFrame()
+        self.card_gpu.setProperty("class", "Card")
+        gpu_l = QVBoxLayout(self.card_gpu)
+        self.lbl_gpu_title = QLabel("Placa de Vídeo (GPU): 0%")
+        self.lbl_gpu_title.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        self.bar_gpu = QProgressBar()
+        self.bar_gpu.setRange(0, 100)
+        self.bar_gpu.setStyleSheet("QProgressBar::chunk { background-color: #00e676; }")
+        self.lbl_gpu_temp = QLabel("Temp GPU: --°C")
+        self.lbl_gpu_temp.setStyleSheet("color: #8b949e; font-size: 11px;")
+        gpu_l.addWidget(self.lbl_gpu_title)
+        gpu_l.addWidget(self.bar_gpu)
+        gpu_l.addWidget(self.lbl_gpu_temp)
+        left_col.addWidget(self.card_gpu)
+
+        # RAM Card
+        self.card_ram = QFrame()
+        self.card_ram.setProperty("class", "Card")
+        ram_l = QVBoxLayout(self.card_ram)
+        self.lbl_ram_title = QLabel("Memória RAM: 0%")
+        self.lbl_ram_title.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        self.bar_ram = QProgressBar()
+        self.bar_ram.setRange(0, 100)
+        self.bar_ram.setStyleSheet("QProgressBar::chunk { background-color: #7c4dff; }")
+        self.lbl_ram_detail = QLabel("Uso: -- GB / -- GB")
+        self.lbl_ram_detail.setStyleSheet("color: #8b949e; font-size: 11px;")
+        ram_l.addWidget(self.lbl_ram_title)
+        ram_l.addWidget(self.bar_ram)
+        ram_l.addWidget(self.lbl_ram_detail)
+        left_col.addWidget(self.card_ram)
+
+        # Transmission Toggle Button
+        self.btn_stream_hw = QPushButton("📡 Iniciar Transmissão Contínua para o Painel")
+        self.btn_stream_hw.setProperty("class", "Success")
+        self.btn_stream_hw.clicked.connect(self.toggle_hardware_streaming)
+        left_col.addWidget(self.btn_stream_hw)
+
+        btn_send_hw_once = QPushButton("🖼️ Enviar Foto Atual do Monitor para Display")
+        btn_send_hw_once.clicked.connect(self.send_hardware_snapshot)
+        left_col.addWidget(btn_send_hw_once)
+
+        left_col.addStretch()
+        layout.addLayout(left_col, stretch=1)
+
+        # Right Column: Live Matrix Preview
+        right_col = QVBoxLayout()
+        right_col.setAlignment(Qt.AlignCenter)
+        lbl_preview = QLabel("Pré-visualização do Display (32x32)")
+        lbl_preview.setFont(QFont("Segoe UI", 12, QFont.Bold))
+        right_col.addWidget(lbl_preview)
+
+        self.lbl_hw_preview = QLabel()
+        self.lbl_hw_preview.setFixedSize(256, 256)
+        self.lbl_hw_preview.setStyleSheet("border: 2px solid #30363d; background: #000; border-radius: 8px;")
+        right_col.addWidget(self.lbl_hw_preview)
+
+        right_col.addStretch()
+        layout.addLayout(right_col, stretch=1)
+
+        return widget
+
+    # ---------------------------------------------------------
+    # TAB 2: CLOCK & DYNAMIC WEATHER
+    # ---------------------------------------------------------
+    def create_tab_clock_weather(self) -> QWidget:
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+
+        sub_tabs = QTabWidget()
+
+        # SubTab 1: Clock Faces Gallery
+        tab_clocks = QWidget()
+        clocks_layout = QVBoxLayout(tab_clocks)
+
+        lbl_gallery = QLabel("Galeria de Mostradores (Clock Faces)")
+        lbl_gallery.setFont(QFont("Segoe UI", 13, QFont.Bold))
+        clocks_layout.addWidget(lbl_gallery)
+
+        # Grid of Clock Styles
+        scroll_clocks = QScrollArea()
+        scroll_clocks.setWidgetResizable(True)
+        container_clocks = QWidget()
+        grid_clocks = QGridLayout(container_clocks)
+        grid_clocks.setSpacing(12)
+
+        self.clock_btn_group = QButtonGroup(self)
+        for i, face in enumerate(CLOCK_FACES):
+            card = QFrame()
+            card.setProperty("class", "Card")
+            card_l = QVBoxLayout(card)
+
+            radio = QRadioButton(f"{face['icon']} {face['name']}")
+            radio.setFont(QFont("Segoe UI", 11, QFont.Bold))
+            if i == 0:
+                radio.setChecked(True)
+            self.clock_btn_group.addButton(radio, face["id"])
+
+            desc = QLabel(face["description"])
+            desc.setStyleSheet("color: #8b949e; font-size: 11px;")
+            desc.setWordWrap(True)
+
+            card_l.addWidget(radio)
+            card_l.addWidget(desc)
+            grid_clocks.addWidget(card, i // 2, i % 2)
+
+        scroll_clocks.setWidget(container_clocks)
+        clocks_layout.addWidget(scroll_clocks)
+
+        # Options Bar
+        opt_box = QHBoxLayout()
+        self.chk_clock_date = QCheckBox("Exibir Data")
+        self.chk_clock_date.setChecked(True)
+        self.chk_clock_24h = QCheckBox("Formato 24 Horas")
+        self.chk_clock_24h.setChecked(True)
+
+        self.btn_clock_color = QPushButton("🎨 Cor dos Dígitos")
+        self.clock_color = QColor(0, 229, 255)
+        self.btn_clock_color.clicked.connect(self.choose_clock_color)
+
+        btn_apply_clock = QPushButton("⚡ Aplicar Mostrador no Display")
+        btn_apply_clock.setProperty("class", "Primary")
+        btn_apply_clock.clicked.connect(self.apply_clock_face)
+
+        btn_sync_now = QPushButton("🕒 Sincronizar Horário do PC")
+        btn_sync_now.clicked.connect(lambda: self.ble.sync_time())
+
+        opt_box.addWidget(self.chk_clock_date)
+        opt_box.addWidget(self.chk_clock_24h)
+        opt_box.addWidget(self.btn_clock_color)
+        opt_box.addWidget(btn_sync_now)
+        opt_box.addWidget(btn_apply_clock)
+        clocks_layout.addLayout(opt_box)
+
+        sub_tabs.addTab(tab_clocks, "🕒 Mostradores de Relógio")
+
+        # SubTab 2: Dynamic Weather & Temperature
+        tab_weather = QWidget()
+        weather_layout = QVBoxLayout(tab_weather)
+
+        w_top = QHBoxLayout()
+        self.txt_city = QLineEdit()
+        self.txt_city.setPlaceholderText("Digite uma cidade (ou deixe vazio para detecção automática)")
+        btn_refresh_weather = QPushButton("🔄 Atualizar Clima")
+        btn_refresh_weather.clicked.connect(self.update_weather)
+
+        self.unit_c_radio = QRadioButton("°C")
+        self.unit_c_radio.setChecked(True)
+        self.unit_f_radio = QRadioButton("°F")
+        self.unit_c_radio.toggled.connect(self.update_weather)
+
+        w_top.addWidget(QLabel("Cidade:"))
+        w_top.addWidget(self.txt_city, stretch=1)
+        w_top.addWidget(self.unit_c_radio)
+        w_top.addWidget(self.unit_f_radio)
+        w_top.addWidget(btn_refresh_weather)
+        weather_layout.addLayout(w_top)
+
+        # Weather Card Details
+        w_card = QFrame()
+        w_card.setProperty("class", "Card")
+        w_card_l = QHBoxLayout(w_card)
+
+        self.lbl_weather_preview = QLabel()
+        self.lbl_weather_preview.setFixedSize(160, 160)
+        self.lbl_weather_preview.setStyleSheet("border: 1px solid #30363d; background: #000; border-radius: 8px;")
+        w_card_l.addWidget(self.lbl_weather_preview)
+
+        w_info = QVBoxLayout()
+        self.lbl_weather_temp = QLabel("--°C")
+        self.lbl_weather_temp.setFont(QFont("Segoe UI", 24, QFont.Bold))
+        self.lbl_weather_desc = QLabel("Condição: Carregando...")
+        self.lbl_weather_desc.setFont(QFont("Segoe UI", 12))
+        self.lbl_weather_tip = QLabel("Carregando recomendações de saúde...")
+        self.lbl_weather_tip.setWordWrap(True)
+        self.lbl_weather_tip.setStyleSheet("background: #1f2937; padding: 10px; border-radius: 8px; color: #6ee7b7; font-weight: 500;")
+
+        btn_project_weather = QPushButton("🚀 Projetar Clima no Display")
+        btn_project_weather.setProperty("class", "Primary")
+        btn_project_weather.clicked.connect(self.project_weather_card)
+
+        w_info.addWidget(self.lbl_weather_temp)
+        w_info.addWidget(self.lbl_weather_desc)
+        w_info.addWidget(self.lbl_weather_tip)
+        w_info.addWidget(btn_project_weather)
+        w_card_l.addLayout(w_info, stretch=1)
+
+        weather_layout.addWidget(w_card)
+        weather_layout.addStretch()
+        sub_tabs.addTab(tab_weather, "🌦️ Clima & Temperatura")
+
+        # SubTab 3: Sleep Routine & Timers
+        tab_sleep = QWidget()
+        sleep_l = QVBoxLayout(tab_sleep)
+
+        lbl_sleep_title = QLabel("🌙 Rotina de Sono e Desligamento Programado")
+        lbl_sleep_title.setFont(QFont("Segoe UI", 13, QFont.Bold))
+        sleep_l.addWidget(lbl_sleep_title)
+
+        sleep_card = QFrame()
+        sleep_card.setProperty("class", "Card")
+        sc_l = QVBoxLayout(sleep_card)
+        sc_l.addWidget(QLabel("Defina um tempo para a tela se desligar automaticamente com animação relaxante:"))
+
+        timer_row = QHBoxLayout()
+        self.spin_sleep_min = QSpinBox()
+        self.spin_sleep_min.setRange(1, 180)
+        self.spin_sleep_min.setValue(30)
+        self.spin_sleep_min.setSuffix(" minutos")
+        timer_row.addWidget(self.spin_sleep_min)
+
+        btn_start_sleep = QPushButton("🌙 Iniciar Modo Sono (Relaxar & Desligar)")
+        btn_start_sleep.setProperty("class", "Primary")
+        btn_start_sleep.clicked.connect(self.start_sleep_routine)
+        timer_row.addWidget(btn_start_sleep)
+        sc_l.addLayout(timer_row)
+
+        sleep_l.addWidget(sleep_card)
+        sleep_l.addStretch()
+        sub_tabs.addTab(tab_sleep, "🌙 Rotina de Sono")
+
+        layout.addWidget(sub_tabs)
+        return widget
+
+    # ---------------------------------------------------------
+    # TAB 3: DIY STUDIO & FRAME-BY-FRAME ANIMATION
+    # ---------------------------------------------------------
+    def create_tab_diy_studio(self) -> QWidget:
+        widget = QWidget()
+        layout = QHBoxLayout(widget)
+        layout.setSpacing(14)
+
+        # Left Column: Tools & Colors
+        tools_col = QVBoxLayout()
+        tools_col.setSpacing(8)
+
+        lbl_tools = QLabel("🛠️ Ferramentas")
+        lbl_tools.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        tools_col.addWidget(lbl_tools)
+
+        self.btn_pencil = QPushButton("✏️ Lápis")
+        self.btn_pencil.clicked.connect(lambda: self.set_diy_tool("pencil"))
+        self.btn_eraser = QPushButton("🧹 Borracha")
+        self.btn_eraser.clicked.connect(lambda: self.set_diy_tool("eraser"))
+        self.btn_fill = QPushButton("🪣 Preencher")
+        self.btn_fill.clicked.connect(lambda: self.set_diy_tool("fill"))
+        self.btn_picker = QPushButton("💧 Conta-gotas")
+        self.btn_picker.clicked.connect(lambda: self.set_diy_tool("picker"))
+
+        tools_col.addWidget(self.btn_pencil)
+        tools_col.addWidget(self.btn_eraser)
+        tools_col.addWidget(self.btn_fill)
+        tools_col.addWidget(self.btn_picker)
+
+        # Color picker
+        lbl_color = QLabel("Cores Rápidas:")
+        tools_col.addWidget(lbl_color)
+
+        color_grid = QGridLayout()
+        colors = [
+            "#ff0055", "#ff5500", "#ffcc00", "#00ff66",
+            "#00ffff", "#0066ff", "#cc00ff", "#ffffff"
+        ]
+        for idx, col in enumerate(colors):
+            btn_col = QPushButton()
+            btn_col.setFixedSize(30, 30)
+            btn_col.setStyleSheet(f"background-color: {col}; border: 1px solid #30363d; border-radius: 4px;")
+            btn_col.clicked.connect(lambda _, c=col: self.set_diy_color(QColor(c)))
+            color_grid.addWidget(btn_col, idx // 4, idx % 4)
+        tools_col.addLayout(color_grid)
+
+        btn_more_colors = QPushButton("🎨 Mais Cores...")
+        btn_more_colors.clicked.connect(self.open_diy_color_dialog)
+        tools_col.addWidget(btn_more_colors)
+
+        # Mirror / Clear
+        btn_mirror_h = QPushButton("↔️ Espelhar H")
+        btn_mirror_h.clicked.connect(lambda: self.canvas.mirror_horizontal())
+        btn_mirror_v = QPushButton("↕️ Espelhar V")
+        btn_mirror_v.clicked.connect(lambda: self.canvas.mirror_vertical())
+        btn_clear = QPushButton("🗑️ Limpar")
+        btn_clear.clicked.connect(lambda: self.canvas.clear())
+
+        tools_col.addWidget(btn_mirror_h)
+        tools_col.addWidget(btn_mirror_v)
+        tools_col.addWidget(btn_clear)
+
+        tools_col.addStretch()
+        layout.addLayout(tools_col)
+
+        # Center Column: Pixel Canvas & Frame Timeline
+        center_col = QVBoxLayout()
+        self.canvas = PixelCanvasWidget(grid_size=32)
+        center_col.addWidget(self.canvas, stretch=1)
+
+        # Frame Animation Timeline bar
+        timeline_bar = QHBoxLayout()
+        self.lbl_frame_counter = QLabel("Frame: 1 / 1")
+        self.lbl_frame_counter.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        btn_add_frame = QPushButton("➕ Novo Frame")
+        btn_add_frame.clicked.connect(self.add_diy_frame)
+        btn_dup_frame = QPushButton("📋 Duplicar")
+        btn_dup_frame.clicked.connect(self.dup_diy_frame)
+        btn_del_frame = QPushButton("❌ Excluir")
+        btn_del_frame.clicked.connect(self.del_diy_frame)
+
+        self.btn_play_anim = QPushButton("▶️ Play Preview")
+        self.btn_play_anim.clicked.connect(self.toggle_diy_playback)
+
+        timeline_bar.addWidget(self.lbl_frame_counter)
+        timeline_bar.addWidget(btn_add_frame)
+        timeline_bar.addWidget(btn_dup_frame)
+        timeline_bar.addWidget(btn_del_frame)
+        timeline_bar.addWidget(self.btn_play_anim)
+        center_col.addLayout(timeline_bar)
+
+        # Send buttons
+        send_row = QHBoxLayout()
+        btn_send_frame = QPushButton("🚀 Projetar Frame no Display")
+        btn_send_frame.setProperty("class", "Primary")
+        btn_send_frame.clicked.connect(self.send_current_diy_frame)
+
+        btn_send_anim = QPushButton("🎬 Enviar Animação Completa")
+        btn_send_anim.setProperty("class", "Success")
+        btn_send_anim.clicked.connect(self.send_diy_animation)
+
+        send_row.addWidget(btn_send_frame)
+        send_row.addWidget(btn_send_anim)
+        center_col.addLayout(send_row)
+
+        layout.addLayout(center_col, stretch=1)
+        return widget
+
+    # ---------------------------------------------------------
+    # TAB 4: GALLERY, CONVERTER & PLAYLISTS
+    # ---------------------------------------------------------
+    def create_tab_gallery_playlists(self) -> QWidget:
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+
+        sub_tabs = QTabWidget()
+
+        # SubTab 1: Community Pixel Art Feed
+        tab_feed = QWidget()
+        feed_l = QVBoxLayout(tab_feed)
+        lbl_feed = QLabel("Feed de Artes & Presets da Comunidade")
+        lbl_feed.setFont(QFont("Segoe UI", 12, QFont.Bold))
+        feed_l.addWidget(lbl_feed)
+
+        scroll_feed = QScrollArea()
+        scroll_feed.setWidgetResizable(True)
+        container_feed = QWidget()
+        grid_feed = QGridLayout(container_feed)
+        grid_feed.setSpacing(14)
+
+        for i, item in enumerate(FEED_PRESETS):
+            card = QFrame()
+            card.setProperty("class", "Card")
+            c_layout = QVBoxLayout(card)
+
+            img_art = item["render"](32)
+            pix = self.pil_to_qpixmap(img_art).scaled(96, 96, Qt.KeepAspectRatio, Qt.FastTransformation)
+            lbl_img = QLabel()
+            lbl_img.setPixmap(pix)
+            lbl_img.setAlignment(Qt.AlignCenter)
+
+            lbl_title = QLabel(f"{item['icon']} {item['name']}")
+            lbl_title.setFont(QFont("Segoe UI", 10, QFont.Bold))
+            lbl_cat = QLabel(item["category"])
+            lbl_cat.setStyleSheet("color: #8b949e; font-size: 10px;")
+
+            btn_proj = QPushButton("Projetar")
+            btn_proj.setProperty("class", "Primary")
+            btn_proj.clicked.connect(lambda _, img=img_art: self.ble.upload_pil_image(img, 32))
+
+            c_layout.addWidget(lbl_img)
+            c_layout.addWidget(lbl_title)
+            c_layout.addWidget(lbl_cat)
+            c_layout.addWidget(btn_proj)
+            grid_feed.addWidget(card, i // 3, i % 3)
+
+        scroll_feed.setWidget(container_feed)
+        feed_l.addWidget(scroll_feed)
+        sub_tabs.addTab(tab_feed, "🌐 Feed Pixel Art")
+
+        # SubTab 2: Image & GIF Converter
+        tab_conv = QWidget()
+        conv_l = QVBoxLayout(tab_conv)
+
+        btn_select_file = QPushButton("📁 Escolher Foto ou GIF do Computador")
+        btn_select_file.clicked.connect(self.open_image_converter_dialog)
+        conv_l.addWidget(btn_select_file)
+
+        self.lbl_conv_preview = QLabel("Nenhuma imagem selecionada")
+        self.lbl_conv_preview.setFixedSize(160, 160)
+        self.lbl_conv_preview.setStyleSheet("border: 2px dashed #30363d; border-radius: 8px;")
+        self.lbl_conv_preview.setAlignment(Qt.AlignCenter)
+        conv_l.addWidget(self.lbl_conv_preview, alignment=Qt.AlignCenter)
+
+        self.btn_send_converted = QPushButton("🚀 Enviar Imagem Convertida para Display")
+        self.btn_send_converted.setProperty("class", "Primary")
+        self.btn_send_converted.setEnabled(False)
+        self.btn_send_converted.clicked.connect(self.send_converted_image)
+        conv_l.addWidget(self.btn_send_converted)
+        conv_l.addStretch()
+
+        sub_tabs.addTab(tab_conv, "🔄 Conversor de Fotos/GIFs")
+
+        # SubTab 3: Playlists & Auto-Carousel
+        tab_play = QWidget()
+        play_l = QVBoxLayout(tab_play)
+        play_l.addWidget(QLabel("Playlists & Modo Carrossel Automático"))
+
+        car_card = QFrame()
+        car_card.setProperty("class", "Card")
+        cc_l = QVBoxLayout(car_card)
+        cc_l.addWidget(QLabel("Alterna automaticamente entre as artes a cada intervalo de tempo:"))
+
+        c_row = QHBoxLayout()
+        self.spin_carousel_sec = QSpinBox()
+        self.spin_carousel_sec.setRange(3, 300)
+        self.spin_carousel_sec.setValue(10)
+        self.spin_carousel_sec.setSuffix(" segundos")
+
+        self.btn_carousel_toggle = QPushButton("▶️ Iniciar Carrossel Contínuo")
+        self.btn_carousel_toggle.setProperty("class", "Success")
+        self.btn_carousel_toggle.clicked.connect(self.toggle_carousel)
+
+        c_row.addWidget(QLabel("Intervalo:"))
+        c_row.addWidget(self.spin_carousel_sec)
+        c_row.addWidget(self.btn_carousel_toggle)
+        cc_l.addLayout(c_row)
+
+        play_l.addWidget(car_card)
+        play_l.addStretch()
+        sub_tabs.addTab(tab_play, "🎠 Carrossel Automático")
+
+        layout.addWidget(sub_tabs)
+        return widget
+
+    # ---------------------------------------------------------
+    # TAB 5: TEXT SCROLL & BILLBOARD
+    # ---------------------------------------------------------
+    def create_tab_text_scroll(self) -> QWidget:
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setSpacing(14)
+
+        lbl_title = QLabel("Letreiros e Ferramentas de Texto (Text Scroll)")
+        lbl_title.setFont(QFont("Segoe UI", 13, QFont.Bold))
+        layout.addWidget(lbl_title)
+
+        card = QFrame()
+        card.setProperty("class", "Card")
+        c_l = QGridLayout(card)
+        c_l.setSpacing(12)
+
+        # Text input
+        c_l.addWidget(QLabel("Texto a exibir:"), 0, 0)
+        self.txt_billboard = QLineEdit("Seja Bem-vindo ao iDotMatrix!")
+        c_l.addWidget(self.txt_billboard, 0, 1, 1, 3)
+
+        # Mode / Animation Style
+        c_l.addWidget(QLabel("Efeito Visual:"), 1, 0)
+        self.combo_text_mode = QComboBox()
+        self.combo_text_mode.addItems([
+            "0: Estático / Substituição",
+            "1: Rolagem para Esquerda (Marquee)",
+            "2: Rolagem Reversa (Direita)",
+            "3: Rolagem Vertical Subindo",
+            "4: Rolagem Vertical Descendo",
+            "5: Piscando (Blink)",
+            "6: Respiração (Breathe)",
+            "7: Efeito Laser / Tetris",
+        ])
+        self.combo_text_mode.setCurrentIndex(1)
+        c_l.addWidget(self.combo_text_mode, 1, 1)
+
+        # Color Effect Mode
+        c_l.addWidget(QLabel("Efeito de Cor:"), 1, 2)
+        self.combo_text_color_mode = QComboBox()
+        self.combo_text_color_mode.addItems([
+            "0: Branco Fixo",
+            "1: Cor Sólida Personalizada",
+            "2: Arco-íris (Rainbow Horizontal)",
+            "3: Arco-íris (Rainbow Vertical)",
+            "4: Sunset / Pôr do Sol",
+            "5: Neon Neonwave",
+        ])
+        self.combo_text_color_mode.setCurrentIndex(1)
+        c_l.addWidget(self.combo_text_color_mode, 1, 3)
+
+        # Speed Slider
+        c_l.addWidget(QLabel("Velocidade do Scroll:"), 2, 0)
+        self.slider_text_speed = QSlider(Qt.Horizontal)
+        self.slider_text_speed.setRange(10, 100)
+        self.slider_text_speed.setValue(90)
+        c_l.addWidget(self.slider_text_speed, 2, 1)
+
+        # Text Color & Background Color Buttons
+        color_btn_row = QHBoxLayout()
+        self.text_color = QColor(255, 60, 60)
+        self.text_bg_color = QColor(0, 0, 0)
+
+        self.btn_txt_col = QPushButton("🎨 Cor do Texto")
+        self.btn_txt_col.clicked.connect(self.choose_text_color)
+        self.btn_bg_col = QPushButton("⬛ Cor de Fundo")
+        self.btn_bg_col.clicked.connect(self.choose_text_bg_color)
+
+        color_btn_row.addWidget(self.btn_txt_col)
+        color_btn_row.addWidget(self.btn_bg_col)
+        c_l.addLayout(color_btn_row, 2, 2, 1, 2)
+
+        # Send Button
+        btn_send_text = QPushButton("🚀 Enviar Letreiro para o Display")
+        btn_send_text.setProperty("class", "Primary")
+        btn_send_text.clicked.connect(self.send_text_billboard)
+        c_l.addWidget(btn_send_text, 3, 0, 1, 4)
+
+        layout.addWidget(card)
+        layout.addStretch()
+        return widget
+
+    # ---------------------------------------------------------
+    # TAB 6: AUDIO & RELAXATION
+    # ---------------------------------------------------------
+    def create_tab_audio_relax(self) -> QWidget:
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setSpacing(14)
+
+        lbl_title = QLabel("Áudio e Reatividade Visual")
+        lbl_title.setFont(QFont("Segoe UI", 13, QFont.Bold))
+        layout.addWidget(lbl_title)
+
+        grid = QGridLayout()
+
+        # Card 1: Equalizer Frequency Visualizer
+        c_eq = QFrame()
+        c_eq.setProperty("class", "Card")
+        eq_l = QVBoxLayout(c_eq)
+        eq_l.addWidget(QLabel("📊 Visualizador de Espectro / Equalizador"))
+        desc_eq = QLabel("Gera barras de som dinâmicas e pulsantes para acompanhar suas músicas no quarto.")
+        desc_eq.setStyleSheet("color: #8b949e;")
+        desc_eq.setWordWrap(True)
+        eq_l.addWidget(desc_eq)
+
+        self.btn_toggle_eq = QPushButton("🎵 Iniciar Equalizador no Display")
+        self.btn_toggle_eq.setProperty("class", "Primary")
+        self.is_eq_running = False
+        self.btn_toggle_eq.clicked.connect(self.toggle_eq_visualizer)
+        eq_l.addWidget(self.btn_toggle_eq)
+        grid.addWidget(c_eq, 0, 0)
+
+        # Card 2: White Noise / Relaxing Ambient
+        c_relax = QFrame()
+        c_relax.setProperty("class", "Card")
+        rx_l = QVBoxLayout(c_relax)
+        rx_l.addWidget(QLabel("🕯️ Máquina de Ruído Branco & Ambientes"))
+        desc_rx = QLabel("Padrões visuais suaves e acolhedores para concentração ou sono:")
+        desc_rx.setStyleSheet("color: #8b949e;")
+        rx_l.addWidget(desc_rx)
+
+        rx_btns = QHBoxLayout()
+        btn_fire = QPushButton("🔥 Fogueira")
+        btn_fire.clicked.connect(lambda: self.start_ambient_mode("campfire"))
+        btn_ocean = QPushButton("🌊 Ondas do Mar")
+        btn_ocean.clicked.connect(lambda: self.start_ambient_mode("ocean"))
+        btn_stop_amb = QPushButton("⏹️ Parar")
+        btn_stop_amb.clicked.connect(self.stop_ambient_mode)
+
+        rx_btns.addWidget(btn_fire)
+        rx_btns.addWidget(btn_ocean)
+        rx_btns.addWidget(btn_stop_amb)
+        rx_l.addLayout(rx_btns)
+        grid.addWidget(c_relax, 0, 1)
+
+        layout.addLayout(grid)
+        layout.addStretch()
+        return widget
+
+    # ---------------------------------------------------------
+    # TAB 7: GAMES & UTILITIES
+    # ---------------------------------------------------------
+    def create_tab_games_utilities(self) -> QWidget:
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setSpacing(14)
+
+        lbl_title = QLabel("Widgets de Produtividade, Games e Dia a Dia")
+        lbl_title.setFont(QFont("Segoe UI", 13, QFont.Bold))
+        layout.addWidget(lbl_title)
+
+        grid = QGridLayout()
+
+        # Scoreboard Card
+        c_score = QFrame()
+        c_score.setProperty("class", "Card")
+        sc_l = QVBoxLayout(c_score)
+        sc_l.addWidget(QLabel("⚽ Placar Digital (Scoreboard)"))
+
+        score_row = QHBoxLayout()
+        self.score_a = 0
+        self.score_b = 0
+
+        # Team A
+        t_a = QVBoxLayout()
+        self.lbl_score_a = QLabel("0")
+        self.lbl_score_a.setFont(QFont("Segoe UI", 24, QFont.Bold))
+        self.lbl_score_a.setAlignment(Qt.AlignCenter)
+        btn_a_up = QPushButton("+1")
+        btn_a_up.clicked.connect(lambda: self.change_score(1, 0))
+        btn_a_dn = QPushButton("-1")
+        btn_a_dn.clicked.connect(lambda: self.change_score(-1, 0))
+        t_a.addWidget(QLabel("Time A"))
+        t_a.addWidget(self.lbl_score_a)
+        t_a.addWidget(btn_a_up)
+        t_a.addWidget(btn_a_dn)
+
+        # Team B
+        t_b = QVBoxLayout()
+        self.lbl_score_b = QLabel("0")
+        self.lbl_score_b.setFont(QFont("Segoe UI", 24, QFont.Bold))
+        self.lbl_score_b.setAlignment(Qt.AlignCenter)
+        btn_b_up = QPushButton("+1")
+        btn_b_up.clicked.connect(lambda: self.change_score(0, 1))
+        btn_b_dn = QPushButton("-1")
+        btn_b_dn.clicked.connect(lambda: self.change_score(0, -1))
+        t_b.addWidget(QLabel("Time B"))
+        t_b.addWidget(self.lbl_score_b)
+        t_b.addWidget(btn_b_up)
+        t_b.addWidget(btn_b_dn)
+
+        score_row.addLayout(t_a)
+        score_row.addLayout(t_b)
+        sc_l.addLayout(score_row)
+
+        btn_send_score = QPushButton("📡 Enviar Placar para o Painel")
+        btn_send_score.setProperty("class", "Primary")
+        btn_send_score.clicked.connect(lambda: self.ble.set_scoreboard(self.score_a, self.score_b))
+        sc_l.addWidget(btn_send_score)
+        grid.addWidget(c_score, 0, 0)
+
+        # Retro Snake Game Card
+        c_snake = QFrame()
+        c_snake.setProperty("class", "Card")
+        sn_l = QVBoxLayout(c_snake)
+        sn_l.addWidget(QLabel("🐍 Mini-Game: Jogo da Cobrinha (Snake)"))
+
+        self.lbl_snake_score = QLabel("Pontos: 0")
+        sn_l.addWidget(self.lbl_snake_score)
+
+        # D-pad controls
+        dpad = QGridLayout()
+        btn_up = QPushButton("⬆️")
+        btn_up.clicked.connect(lambda: self.snake_engine.change_direction(0, -1))
+        btn_down = QPushButton("⬇️")
+        btn_down.clicked.connect(lambda: self.snake_engine.change_direction(0, 1))
+        btn_left = QPushButton("⬅️")
+        btn_left.clicked.connect(lambda: self.snake_engine.change_direction(-1, 0))
+        btn_right = QPushButton("➡️")
+        btn_right.clicked.connect(lambda: self.snake_engine.change_direction(1, 0))
+
+        dpad.addWidget(btn_up, 0, 1)
+        dpad.addWidget(btn_left, 1, 0)
+        dpad.addWidget(btn_right, 1, 2)
+        dpad.addWidget(btn_down, 2, 1)
+        sn_l.addLayout(dpad)
+
+        btn_start_snake = QPushButton("🎮 Iniciar / Reiniciar Jogo no Painel")
+        btn_start_snake.setProperty("class", "Success")
+        btn_start_snake.clicked.connect(self.start_snake_game)
+        sn_l.addWidget(btn_start_snake)
+        grid.addWidget(c_snake, 0, 1)
+
+        # App Notifications Card
+        c_notif = QFrame()
+        c_notif.setProperty("class", "Card")
+        nt_l = QVBoxLayout(c_notif)
+        nt_l.addWidget(QLabel("🔔 Notificações no Display"))
+
+        nt_combo = QComboBox()
+        nt_combo.addItems(["WhatsApp", "Instagram", "Discord", "Email", "Chamada"])
+        nt_l.addWidget(nt_combo)
+
+        btn_send_notif = QPushButton("📢 Projetar Alerta com Logo")
+        btn_send_notif.setProperty("class", "Primary")
+        btn_send_notif.clicked.connect(lambda: self.send_app_notification(nt_combo.currentText()))
+        nt_l.addWidget(btn_send_notif)
+        grid.addWidget(c_notif, 1, 0, 1, 2)
+
+        layout.addLayout(grid)
+        layout.addStretch()
+        return widget
+
+    # ---------------------------------------------------------
+    # CONTROLLER LOGIC & SLOTS
+    # ---------------------------------------------------------
+    def on_ble_status(self, connected: bool, message: str):
+        if connected:
+            self.status_badge.setText(f"🟢 Conectado")
+            self.status_badge.setStyleSheet("color: #3fb950; font-weight: bold; padding: 4px 10px; background: #21262d; border-radius: 12px;")
+            self.btn_connect.setText("Desconectar")
+            self.btn_connect.setProperty("class", "Danger")
         else:
-            QMessageBox.warning(self, 'Device Already Added', f'Device with MAC address "{mac_address}" is already added to the homepage.')
-        device_button.clicked.connect(self.show_device_page)
+            self.status_badge.setText("🔴 Desconectado")
+            self.status_badge.setStyleSheet("color: #f85149; font-weight: bold; padding: 4px 10px; background: #21262d; border-radius: 12px;")
+            self.btn_connect.setText("Conectar")
+            self.btn_connect.setProperty("class", "Primary")
+        self.btn_connect.style().unpolish(self.btn_connect)
+        self.btn_connect.style().polish(self.btn_connect)
+        self.footer_label.setText(message)
 
-    def save_device_settings(self):
-        settings = QSettings("MyCompany", "iDotMatrixController")
-        devices = [(mac_address, button.text()) for mac_address, button in self.device_buttons.items()]
-        settings.setValue("devices", devices)
-        settings.setValue("device_name", self.configuration_page.device_name)
+    def on_device_discovered(self, address: str, name: str):
+        if address not in self.devices_dict:
+            self.devices_dict[address] = name
+            self.device_combo.addItem(f"{name} ({address})", address)
 
-    def load_device_settings(self):
-        settings = QSettings("MyCompany", "iDotMatrixController")
-        devices = settings.value("devices", [])
-        for device in devices:
-            if len(device) == 2:
-                mac_address, friendly_name = device
-                self.add_device_to_homepage(friendly_name, mac_address)
-                self.configuration_page.device_name = settings.value("device_name", "")
+    def on_scan_finished(self, found: list):
+        self.btn_scan.setText("🔍 Buscar")
+        self.btn_scan.setEnabled(True)
+        if not found:
+            QMessageBox.information(self, "Busca Bluetooth", "Nenhum novo dispositivo iDotMatrix encontrado no alcance.")
 
-    def connect_device_buttons(self):
-        for mac_address, button in self.device_buttons.items():
-            button.clicked.connect(self.show_device_page)
+    def on_command_completed(self, cmd: str, success: bool, msg: str):
+        prefix = "✅" if success else "⚠️"
+        self.footer_label.setText(f"{prefix} {cmd}: {msg}")
 
-    def show_device_page(self):
-        sender = self.sender()
-        if sender:
-            mac_address = sender.toolTip()
-           
-            if mac_address in self.device_pages:
-                device_page = self.device_pages[mac_address]
+    def start_scan(self):
+        self.btn_scan.setText("Buscando...")
+        self.btn_scan.setEnabled(False)
+        self.ble.scan_devices()
+
+    def toggle_connection(self):
+        if self.ble.is_connected:
+            self.ble.disconnect_device()
+        else:
+            idx = self.device_combo.currentIndex()
+            if idx >= 0:
+                mac = self.device_combo.itemData(idx)
+                if mac:
+                    self.current_mac = mac
+                    self.ble.connect_device(mac)
+
+    def on_device_selected(self, idx):
+        if idx >= 0:
+            mac = self.device_combo.itemData(idx)
+            if mac and mac != self.current_mac:
+                self.current_mac = mac
+
+    def on_brightness_changed(self):
+        val = self.slider_brightness.value()
+        self.ble.set_brightness(val)
+
+    def toggle_screen_power(self):
+        self.screen_on_state = not self.screen_on_state
+        self.ble.set_screen_power(self.screen_on_state)
+        self.btn_screen_toggle.setText("☀️ Tela On" if not self.screen_on_state else "🌙 Tela Off")
+
+    # --- Hardware Monitor ---
+    def update_hardware_monitor(self):
+        metrics = HardwareMonitor.get_metrics()
+        self.lbl_cpu_title.setText(f"Processador (CPU): {metrics['cpu_percent']}%")
+        self.bar_cpu.setValue(metrics["cpu_percent"])
+        self.lbl_cpu_temp.setText(f"Temperatura CPU: {metrics['temp_c']}°C ({metrics['temp_f']}°F)")
+
+        self.lbl_gpu_title.setText(f"Placa de Vídeo (GPU): {metrics['gpu_percent']}%")
+        self.bar_gpu.setValue(metrics["gpu_percent"])
+        self.lbl_gpu_temp.setText(f"Temperatura GPU: {metrics.get('gpu_temp', 40)}°C")
+
+        self.lbl_ram_title.setText(f"Memória RAM: {metrics['ram_percent']}%")
+        self.bar_ram.setValue(metrics["ram_percent"])
+        self.lbl_ram_detail.setText(f"Uso: {metrics['ram_used_gb']} GB / {metrics['ram_total_gb']} GB")
+
+        # Update preview image
+        hw_img = HardwareMonitor.render_matrix_dashboard(32, metrics)
+        pix = self.pil_to_qpixmap(hw_img).scaled(256, 256, Qt.KeepAspectRatio, Qt.FastTransformation)
+        self.lbl_hw_preview.setPixmap(pix)
+
+        # Transmit continuous stream if enabled
+        if self.is_transmitting_hardware and self.ble.is_connected:
+            self.ble.upload_pil_image(hw_img, 32)
+
+    def toggle_hardware_streaming(self):
+        self.is_transmitting_hardware = not self.is_transmitting_hardware
+        if self.is_transmitting_hardware:
+            self.btn_stream_hw.setText("⏹️ Parar Transmissão do Monitor")
+            self.btn_stream_hw.setProperty("class", "Danger")
+        else:
+            self.btn_stream_hw.setText("📡 Iniciar Transmissão Contínua para o Painel")
+            self.btn_stream_hw.setProperty("class", "Success")
+        self.btn_stream_hw.style().unpolish(self.btn_stream_hw)
+        self.btn_stream_hw.style().polish(self.btn_stream_hw)
+
+    def send_hardware_snapshot(self):
+        img = HardwareMonitor.render_matrix_dashboard(32)
+        self.ble.upload_pil_image(img, 32)
+
+    # --- Clock & Weather ---
+    def choose_clock_color(self):
+        col = QColorDialog.getColor(self.clock_color, self, "Escolher Cor dos Dígitos")
+        if col.isValid():
+            self.clock_color = col
+            self.btn_clock_color.setStyleSheet(f"background-color: {col.name()}; color: #000;")
+
+    def apply_clock_face(self):
+        face_id = self.clock_btn_group.checkedId()
+        date = self.chk_clock_date.isChecked()
+        h24 = self.chk_clock_24h.isChecked()
+        r, g, b = self.clock_color.red(), self.clock_color.green(), self.clock_color.blue()
+        self.ble.set_clock(face_id, date, h24, r, g, b)
+
+    def update_weather(self):
+        city = self.txt_city.text().strip()
+        data = WeatherService.get_weather(city)
+        unit = "C" if self.unit_c_radio.isChecked() else "F"
+        temp = data["temp_c"] if unit == "C" else data["temp_f"]
+
+        self.lbl_weather_temp.setText(f"{temp}°{unit}")
+        self.lbl_weather_desc.setText(f"Condição: {data['desc']} em {data['city']}")
+        self.lbl_weather_tip.setText(WeatherService.get_health_tip(data["temp_c"]))
+
+        card_img = WeatherService.render_weather_card(data, unit, 32)
+        pix = self.pil_to_qpixmap(card_img).scaled(160, 160, Qt.KeepAspectRatio, Qt.FastTransformation)
+        self.lbl_weather_preview.setPixmap(pix)
+        self.current_weather_img = card_img
+
+    def project_weather_card(self):
+        if hasattr(self, "current_weather_img"):
+            self.ble.upload_pil_image(self.current_weather_img, 32)
+        else:
+            self.update_weather()
+            if hasattr(self, "current_weather_img"):
+                self.ble.upload_pil_image(self.current_weather_img, 32)
+
+    def start_sleep_routine(self):
+        minutes = self.spin_sleep_min.value()
+        # Start calm ocean waves
+        self.start_ambient_mode("ocean")
+        QTimer.singleShot(minutes * 60 * 1000, lambda: self.ble.set_screen_power(False))
+        QMessageBox.information(self, "Modo Sono Ativado", f"Animação relaxante iniciada. O painel se desligará automaticamente em {minutes} minutos. Durma bem! 😴")
+
+    # --- DIY Editor ---
+    def set_diy_tool(self, tool_name: str):
+        self.canvas.tool = tool_name
+        self.btn_pencil.setProperty("class", "Primary" if tool_name == "pencil" else "")
+        self.btn_eraser.setProperty("class", "Primary" if tool_name == "eraser" else "")
+        self.btn_fill.setProperty("class", "Primary" if tool_name == "fill" else "")
+        self.btn_picker.setProperty("class", "Primary" if tool_name == "picker" else "")
+        for b in [self.btn_pencil, self.btn_eraser, self.btn_fill, self.btn_picker]:
+            b.style().unpolish(b)
+            b.style().polish(b)
+
+    def set_diy_color(self, qc: QColor):
+        self.canvas.current_color = qc
+
+    def open_diy_color_dialog(self):
+        col = QColorDialog.getColor(self.canvas.current_color, self, "Escolher Cor do Pincel")
+        if col.isValid():
+            self.set_diy_color(col)
+
+    def add_diy_frame(self):
+        current_img = self.canvas.get_pil_image()
+        self.diy_frames.append(current_img)
+        self.diy_frame_idx = len(self.diy_frames)
+        self.canvas.clear()
+        self.lbl_frame_counter.setText(f"Frame: {self.diy_frame_idx + 1} / {len(self.diy_frames) + 1}")
+
+    def dup_diy_frame(self):
+        current_img = self.canvas.get_pil_image()
+        self.diy_frames.append(current_img.copy())
+        self.lbl_frame_counter.setText(f"Frame: {len(self.diy_frames)} / {len(self.diy_frames)}")
+
+    def del_diy_frame(self):
+        if self.diy_frames:
+            self.diy_frames.pop()
+            self.lbl_frame_counter.setText(f"Frame: {max(1, len(self.diy_frames))} / {max(1, len(self.diy_frames))}")
+
+    def toggle_diy_playback(self):
+        if self.diy_anim_timer.isActive():
+            self.diy_anim_timer.stop()
+            self.btn_play_anim.setText("▶️ Play Preview")
+        else:
+            all_frames = self.diy_frames + [self.canvas.get_pil_image()]
+            if len(all_frames) > 1:
+                self.diy_playback_frames = all_frames
+                self.diy_playback_idx = 0
+                self.diy_anim_timer.start(250)
+                self.btn_play_anim.setText("⏸️ Pausar")
+
+    def step_diy_animation(self):
+        if hasattr(self, "diy_playback_frames") and self.diy_playback_frames:
+            self.canvas.load_pil_image(self.diy_playback_frames[self.diy_playback_idx])
+            self.diy_playback_idx = (self.diy_playback_idx + 1) % len(self.diy_playback_frames)
+
+    def send_current_diy_frame(self):
+        img = self.canvas.get_pil_image()
+        self.ble.upload_pil_image(img, 32)
+
+    def send_diy_animation(self):
+        all_frames = self.diy_frames + [self.canvas.get_pil_image()]
+        self.ble.upload_gif_frames(all_frames, duration_ms=250, pixel_size=32)
+
+    # --- Gallery & Playlists ---
+    def open_image_converter_dialog(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Escolher Imagem ou GIF", "", "Imagens (*.png *.jpg *.jpeg *.bmp *.gif)")
+        if path:
+            self.converted_path = path
+            try:
+                with Image.open(path) as img:
+                    scaled = img.resize((32, 32), Image.LANCZOS)
+                    pix = self.pil_to_qpixmap(scaled).scaled(160, 160, Qt.KeepAspectRatio, Qt.FastTransformation)
+                    self.lbl_conv_preview.setPixmap(pix)
+                    self.btn_send_converted.setEnabled(True)
+            except Exception as e:
+                QMessageBox.warning(self, "Erro", f"Não foi possível abrir a imagem: {e}")
+
+    def send_converted_image(self):
+        if hasattr(self, "converted_path"):
+            if self.converted_path.lower().endswith(".gif"):
+                self.ble.upload_gif_file(self.converted_path, 32)
             else:
-                device_name = None
-                for i in range(self.configuration_page.device_list.count()):
-                    item = self.configuration_page.device_list.item(i)
-                    if item.toolTip() == mac_address:
-                        device_name = item.text()
-                        break
-               
-                friendly_name = sender.text()
-                device_page = DevicePage(self, friendly_name, device_name, mac_address)
-                self.device_pages[mac_address] = device_page
-                self.stacked_widget.addWidget(device_page)
+                self.ble.upload_image_file(self.converted_path, 32)
 
-            self.stacked_widget.setCurrentWidget(device_page)
-   
-    def show_device_page(self):
-        sender = self.sender()
-        if sender:
-            mac_address = sender.toolTip()
-            if mac_address in self.device_pages:
-                device_page = self.device_pages[mac_address]
-            else:
-                device_name = None
-                for i in range(self.configuration_page.device_list.count()):
-                    item = self.configuration_page.device_list.item(i)
-                    if item.toolTip() == mac_address:
-                        device_name = item.text()
-                        break
+    def toggle_carousel(self):
+        self.is_carousel_running = not self.is_carousel_running
+        if self.is_carousel_running:
+            self.btn_carousel_toggle.setText("⏹️ Parar Carrossel")
+            self.btn_carousel_toggle.setProperty("class", "Danger")
+            self.playlist_images = [item["render"](32) for item in FEED_PRESETS]
+            sec = self.spin_carousel_sec.value()
+            self.carousel_timer.start(sec * 1000)
+            self.step_carousel()
+        else:
+            self.btn_carousel_toggle.setText("▶️ Iniciar Carrossel Contínuo")
+            self.btn_carousel_toggle.setProperty("class", "Success")
+            self.carousel_timer.stop()
+        self.btn_carousel_toggle.style().unpolish(self.btn_carousel_toggle)
+        self.btn_carousel_toggle.style().polish(self.btn_carousel_toggle)
 
-                friendly_name = sender.text()
-                device_page = DevicePage(self, friendly_name, device_name, mac_address)
-                self.device_pages[mac_address] = device_page
-                self.stacked_widget.addWidget(device_page)
+    def step_carousel(self):
+        if self.playlist_images and self.ble.is_connected:
+            img = self.playlist_images[self.playlist_index]
+            self.ble.upload_pil_image(img, 32)
+            self.playlist_index = (self.playlist_index + 1) % len(self.playlist_images)
 
-            self.stacked_widget.setCurrentWidget(device_page)
+    # --- Text Billboard ---
+    def choose_text_color(self):
+        col = QColorDialog.getColor(self.text_color, self, "Cor do Texto")
+        if col.isValid():
+            self.text_color = col
+            self.btn_txt_col.setStyleSheet(f"background-color: {col.name()}; color: #000;")
 
-    def open_pixel_paint_dialog(self, mac_address):
-        dialog = PixelPaintDialog(mac_address)
-        dialog.exec_()
-        
-# --- Main Execution ---
+    def choose_text_bg_color(self):
+        col = QColorDialog.getColor(self.text_bg_color, self, "Cor de Fundo")
+        if col.isValid():
+            self.text_bg_color = col
+            self.btn_bg_col.setStyleSheet(f"background-color: {col.name()}; color: #fff;")
+
+    def send_text_billboard(self):
+        txt = self.txt_billboard.text().strip()
+        mode_idx = self.combo_text_mode.currentIndex()
+        color_mode_idx = self.combo_text_color_mode.currentIndex()
+        speed = self.slider_text_speed.value()
+        tc = (self.text_color.red(), self.text_color.green(), self.text_color.blue())
+        bgc = (self.text_bg_color.red(), self.text_bg_color.green(), self.text_bg_color.blue())
+
+        self.ble.set_text(
+            text=txt,
+            font_size=16,
+            text_mode=mode_idx,
+            speed=speed,
+            text_color_mode=color_mode_idx,
+            text_color=tc,
+            text_bg_mode=0 if bgc == (0, 0, 0) else 1,
+            text_bg_color=bgc
+        )
+
+    # --- Audio & Ambient ---
+    def toggle_eq_visualizer(self):
+        self.is_eq_running = not self.is_eq_running
+        if self.is_eq_running:
+            self.btn_toggle_eq.setText("⏹️ Parar Equalizador")
+            self.ambient_type = "eq"
+            self.ambient_timer.start(120)
+        else:
+            self.btn_toggle_eq.setText("🎵 Iniciar Equalizador no Display")
+            self.ambient_timer.stop()
+
+    def start_ambient_mode(self, mode_name: str):
+        self.ambient_type = mode_name
+        self.ambient_tick = 0
+        self.ambient_timer.start(150)
+
+    def stop_ambient_mode(self):
+        self.ambient_timer.stop()
+
+    def step_ambient_mode(self):
+        self.ambient_tick += 1
+        if self.ambient_type == "campfire":
+            img = render_campfire_pattern(self.ambient_tick, 32)
+        elif self.ambient_type == "ocean":
+            img = render_ocean_waves_pattern(self.ambient_tick, 32)
+        elif self.ambient_type == "eq":
+            import random
+            bars = [min(1.0, max(0.1, random.random())) for _ in range(8)]
+            img = render_sound_eq_frame(bars, 32)
+        else:
+            return
+
+        if self.ble.is_connected:
+            self.ble.upload_pil_image(img, 32)
+
+    # --- Games & Scores ---
+    def change_score(self, delta_a, delta_b):
+        self.score_a = max(0, self.score_a + delta_a)
+        self.score_b = max(0, self.score_b + delta_b)
+        self.lbl_score_a.setText(str(self.score_a))
+        self.lbl_score_b.setText(str(self.score_b))
+        self.ble.set_scoreboard(self.score_a, self.score_b)
+
+    def start_snake_game(self):
+        self.snake_engine.reset()
+        self.snake_timer.start(300)
+
+    def step_snake_game(self):
+        self.snake_engine.step()
+        self.lbl_snake_score.setText(f"Pontos: {self.snake_engine.score}")
+        img = self.snake_engine.render()
+        if self.ble.is_connected:
+            self.ble.upload_pil_image(img, 32)
+        if self.snake_engine.game_over:
+            self.snake_timer.stop()
+            self.lbl_snake_score.setText(f"Fim de Jogo! Pontos: {self.snake_engine.score}")
+
+    def send_app_notification(self, app_name: str):
+        img = create_notification_art(app_name, 32)
+        self.ble.upload_pil_image(img, 32)
+
+    # --- Helpers & Storage ---
+    def pil_to_qpixmap(self, pil_image: Image.Image) -> QPixmap:
+        img_rgb = pil_image.convert("RGB")
+        data = img_rgb.tobytes("raw", "RGB")
+        qim = QImage(data, img_rgb.size[0], img_rgb.size[1], QImage.Format_RGB888)
+        return QPixmap.fromImage(qim)
+
+    def load_settings(self):
+        from PyQt5.QtCore import QSettings
+        settings = QSettings("MyCompany", "iDotMatrixController")
+        saved_devices = settings.value("devices", [])
+        for dev in saved_devices:
+            if len(dev) == 2:
+                mac, name = dev
+                self.devices_dict[mac] = name
+                self.device_combo.addItem(f"{name} ({mac})", mac)
+        if self.device_combo.count() > 0:
+            self.device_combo.setCurrentIndex(0)
+            self.current_mac = self.device_combo.itemData(0)
+        # Load weather immediately
+        QTimer.singleShot(800, self.update_weather)
+
+    def save_settings(self):
+        from PyQt5.QtCore import QSettings
+        settings = QSettings("MyCompany", "iDotMatrixController")
+        devs = [(mac, name) for mac, name in self.devices_dict.items()]
+        settings.setValue("devices", devs)
+
+
+# -------------------------------------------------------------
+# APPLICATION ENTRY POINT
+# -------------------------------------------------------------
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MainWindow()

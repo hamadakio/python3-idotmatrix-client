@@ -2,6 +2,7 @@
 from datetime import datetime
 import logging
 import os
+import sys
 from PIL import Image
 import time
 from utils import utils
@@ -260,7 +261,7 @@ class CMD:
         address = None
         if args.scan:
             await self.conn.scan()
-            quit()
+            sys.exit(0)
         if args.address:
             self.logging.debug("using --address")
             address = args.address
@@ -269,7 +270,7 @@ class CMD:
             address = os.environ["IDOTMATRIX_ADDRESS"]
         if address is None:
             self.logging.error("no device address given")
-            quit()
+            sys.exit(1)
         elif str(address).lower() == "auto":
             await self.conn.connectBySearch()
         else:
@@ -482,11 +483,11 @@ class CMD:
         color = argument.split("-")
         if len(color) != 3:
             self.logging.error("wrong argument for --fullscreen-color")
-            quit()
+            sys.exit(1)
         await FullscreenColor().setMode(
             int(color[0]),
             int(color[1]),
-            color[2],
+            int(color[2]),
         )
 
     async def pixelColor(self, argument):
