@@ -1,0 +1,11 @@
+D:\Projetos\python3-idotmatrix-client\iDotMatrixPro\publish\iDotMatrixPro.exe
+D:\Projetos\python3-idotmatrix-client\iDotMatrixPro\publish\idmc.ico
+D:\Projetos\python3-idotmatrix-client\iDotMatrixPro\publish\iDotMatrixPro.dll
+D:\Projetos\python3-idotmatrix-client\iDotMatrixPro\publish\iDotMatrixPro.deps.json
+D:\Projetos\python3-idotmatrix-client\iDotMatrixPro\publish\iDotMatrixPro.runtimeconfig.json
+D:\Projetos\python3-idotmatrix-client\iDotMatrixPro\publish\iDotMatrixPro.pdb
+D:\Projetos\python3-idotmatrix-client\iDotMatrixPro\publish\Microsoft.Windows.SDK.NET.dll
+D:\Projetos\python3-idotmatrix-client\iDotMatrixPro\publish\WinRT.Runtime.dll
+D:\Projetos\python3-idotmatrix-client\iDotMatrixPro\publish\MaterialDesignColors.dll
+D:\Projetos\python3-idotmatrix-client\iDotMatrixPro\publish\MaterialDesignThemes.Wpf.dll
+D:\Projetos\python3-idotmatrix-client\iDotMatrixPro\publish\Microsoft.Xaml.Behaviors.dll

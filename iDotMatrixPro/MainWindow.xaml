@@ -1,0 +1,751 @@
+<Window x:Class="iDotMatrixPro.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:local="clr-namespace:iDotMatrixPro"
+        mc:Ignorable="d"
+        Title="iDotMatrix Pro - Pixel Control Studio" 
+        Height="780" Width="1180" 
+        MinHeight="680" MinWidth="1000"
+        WindowStartupLocation="CenterScreen"
+        Background="#121217"
+        Foreground="#EEEEEE"
+        TextElement.FontFamily="Segoe UI"
+        Icon="idmc.ico">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- TOP BAR / HEADER -->
+        <Border Grid.Row="0" Background="#181822" BorderBrush="#28283C" BorderThickness="0,0,0,1" Padding="16,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Brand Logo & Title -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="36" Height="36" CornerRadius="8" Background="#00E5FF" Margin="0,0,12,0">
+                        <TextBlock Text="IDM" Foreground="#0A0A10" FontWeight="Black" FontSize="13" 
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="iDotMatrix" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF"/>
+                            <TextBlock Text=" PRO" FontSize="18" FontWeight="Black" Foreground="#00E5FF"/>
+                            <Border Background="#2A1B4E" CornerRadius="4" Padding="6,2" Margin="8,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="v2.0 C# NATIVE" FontSize="10" FontWeight="Bold" Foreground="#B388FF"/>
+                            </Border>
+                        </StackPanel>
+                        <TextBlock Text="Controle BLE de Alta Performance &amp; Baixa Latência" FontSize="11" Foreground="#888899"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- BLE Connection & Global Controls -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- Status Badge -->
+                    <Border Background="#20202E" CornerRadius="20" Padding="10,5" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="StatusDot" Width="10" Height="10" Fill="#FF1744" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock x:Name="StatusText" Text="Desconectado" FontSize="12" FontWeight="SemiBold" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Device Selector / MAC Input -->
+                    <ComboBox x:Name="DeviceComboBox" Width="180" Height="36" Margin="0,0,8,0" VerticalAlignment="Center"
+                              IsEditable="True" Foreground="#FFFFFF" Background="#20202E"
+                              ToolTip="Endereço MAC do Dispositivo"/>
+
+                    <Button x:Name="ScanBtn" Content="Escanear" Height="36" Margin="0,0,8,0"
+                            Click="ScanBtn_Click" Style="{StaticResource MaterialDesignOutlinedButton}"
+                            BorderBrush="#00E5FF" Foreground="#00E5FF"/>
+
+                    <Button x:Name="ConnectBtn" Content="Conectar" Height="36" Margin="0,0,12,0"
+                            Click="ConnectBtn_Click" Style="{StaticResource MaterialDesignRaisedButton}"
+                            Background="#00E5FF" Foreground="#0A0A10" FontWeight="Bold"/>
+
+                    <!-- Screen Brightness -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <TextBlock Text="Brilho:" FontSize="11" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <Slider x:Name="BrightnessSlider" Width="80" Minimum="5" Maximum="100" Value="80"
+                                ValueChanged="BrightnessSlider_ValueChanged" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Power Toggle -->
+                    <Button x:Name="PowerBtn" Content="Tela On" Height="36" Margin="0,0,8,0"
+                            Click="PowerBtn_Click" Style="{StaticResource MaterialDesignOutlinedButton}"
+                            BorderBrush="#76FF03" Foreground="#76FF03"/>
+
+                    <!-- Minimize to Tray Button -->
+                    <Button x:Name="MinimizeTrayBtn" ToolTip="Minimizar para a Bandeja do Sistema" Height="36"
+                            Click="MinimizeTrayBtn_Click" Style="{StaticResource MaterialDesignOutlinedButton}"
+                            BorderBrush="#444455" Foreground="#AAAAAA" Padding="8,4">
+                        <TextBlock Text="Bandeja" FontSize="11"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- MAIN BODY: TABS -->
+        <TabControl Grid.Row="1" Background="Transparent" BorderThickness="0"
+                    TabStripPlacement="Left" Margin="0">
+            <TabControl.Resources>
+                <Style TargetType="TabItem">
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="TabItem">
+                                <Border x:Name="Border" Background="Transparent" Padding="18,14" Margin="0,2"
+                                        CornerRadius="0,8,8,0" BorderThickness="3,0,0,0" BorderBrush="Transparent">
+                                    <ContentPresenter ContentSource="Header" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Border" Property="Background" Value="#1C1C28"/>
+                                    </Trigger>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter TargetName="Border" Property="Background" Value="#222234"/>
+                                        <Setter TargetName="Border" Property="BorderBrush" Value="#00E5FF"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </TabControl.Resources>
+
+            <!-- TAB 1: MONITOR DE HARDWARE & EDITOR -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="📊" FontSize="16" Margin="0,0,10,0"/>
+                        <TextBlock Text="Monitor PC &amp; Editor" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <Grid Margin="20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="380"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left: Live Preview & Stream Controls -->
+                    <Border Grid.Column="0" Background="#181822" CornerRadius="12" Padding="20" BorderBrush="#252538" BorderThickness="1" Margin="0,0,16,0">
+                        <StackPanel>
+                            <TextBlock Text="PRÉVIA DO DISPLAY 32x32" FontSize="12" FontWeight="Bold" Foreground="#888899" Margin="0,0,0,12"/>
+
+                            <!-- Matrix Display Canvas Box -->
+                            <Border Width="288" Height="288" Background="#000000" CornerRadius="8" 
+                                    BorderBrush="#33334D" BorderThickness="2" HorizontalAlignment="Center">
+                                <Image x:Name="MonitorPreviewImage" Width="288" Height="288" 
+                                       RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                            </Border>
+
+                            <!-- Live Stats summary -->
+                            <Border Background="#20202E" CornerRadius="8" Padding="12" Margin="0,16,0,16">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,8">
+                                        <TextBlock Text="CPU" FontSize="11" Foreground="#00E5FF" FontWeight="Bold"/>
+                                        <TextBlock x:Name="CpuStatsLabel" Text="0%" FontSize="16" FontWeight="Black" Foreground="#FFFFFF"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,8">
+                                        <TextBlock Text="GPU" FontSize="11" Foreground="#76FF03" FontWeight="Bold"/>
+                                        <TextBlock x:Name="GpuStatsLabel" Text="0%" FontSize="16" FontWeight="Black" Foreground="#FFFFFF"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="1" Grid.Column="0">
+                                        <TextBlock Text="RAM" FontSize="11" Foreground="#FFD600" FontWeight="Bold"/>
+                                        <TextBlock x:Name="RamStatsLabel" Text="0%" FontSize="16" FontWeight="Black" Foreground="#FFFFFF"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="1" Grid.Column="1">
+                                        <TextBlock Text="TEMP" FontSize="11" Foreground="#FF3D00" FontWeight="Bold"/>
+                                        <TextBlock x:Name="TempStatsLabel" Text="0°C" FontSize="16" FontWeight="Black" Foreground="#FFFFFF"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <!-- Buttons -->
+                            <Button x:Name="ToggleMonitorStreamBtn" Content="▶ Iniciar Monitoramento no Display" 
+                                    Height="40" Background="#00E5FF" Foreground="#0A0A10" FontWeight="Bold"
+                                    Click="ToggleMonitorStreamBtn_Click" Margin="0,0,0,10"/>
+
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Button Content="Salvar Layout" Click="SaveLayout_Click" 
+                                        Style="{StaticResource MaterialDesignOutlinedButton}" BorderBrush="#00E5FF" Foreground="#00E5FF" Margin="0,0,8,0"/>
+                                <Button Content="Padrão" Click="ResetLayout_Click" 
+                                        Style="{StaticResource MaterialDesignOutlinedButton}" BorderBrush="#555566" Foreground="#AAAAAA"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Right: Layout Editor Controls -->
+                    <Border Grid.Column="1" Background="#181822" CornerRadius="12" Padding="20" BorderBrush="#252538" BorderThickness="1">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <TextBlock Text="EDITOR DE DADOS &amp; POSIÇÕES DO DISPLAY" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,4"/>
+                                <TextBlock Text="Configure a posição (X/Y), cores e barras de cada métrica em tempo real." FontSize="11" Foreground="#888899" Margin="0,0,0,16"/>
+
+                                <!-- Intervalo de Atualização -->
+                                <Border Background="#20202E" CornerRadius="8" Padding="14" Margin="0,0,0,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Intervalo de Atualização:" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        <Slider x:Name="MonitorIntervalSlider" Grid.Column="1" Minimum="1" Maximum="10" Value="2"
+                                                ValueChanged="MonitorIntervalSlider_ValueChanged" Margin="16,0" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="MonitorIntervalLabel" Grid.Column="2" Text="2s" FontSize="12" FontWeight="Bold" Foreground="#00E5FF" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- CPU Config Section -->
+                                <Expander Header="CONFIGURAÇÃO DA CPU" IsExpanded="True" Background="#20202E" Margin="0,0,0,12">
+                                    <StackPanel Margin="12">
+                                        <CheckBox x:Name="CpuEnabledCheck" Content="Exibir CPU no Display" IsChecked="True" 
+                                                  Checked="LayoutSettingChanged" Unchecked="LayoutSettingChanged" Margin="0,0,0,8"/>
+                                        
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Pos X:" VerticalAlignment="Center" FontSize="11"/>
+                                            <Slider x:Name="CpuXSlider" Grid.Column="1" Minimum="0" Maximum="30" Value="1" 
+                                                    ValueChanged="LayoutSettingChanged" Margin="4,0,10,0"/>
+                                            <TextBlock Grid.Column="2" Text="Pos Y:" VerticalAlignment="Center" FontSize="11"/>
+                                            <Slider x:Name="CpuYSlider" Grid.Column="3" Minimum="0" Maximum="30" Value="2" 
+                                                    ValueChanged="LayoutSettingChanged" Margin="4,0,0,0"/>
+                                        </Grid>
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                            <TextBlock Text="Cor:" VerticalAlignment="Center" FontSize="11" Margin="0,0,8,0"/>
+                                            <TextBox x:Name="CpuColorText" Text="#00E5FF" Width="90" Height="30" TextChanged="LayoutSettingChanged"/>
+                                            <Button Content="Cyan" Height="26" Margin="6,0,0,0" Padding="8,0" Click="SetColorPreset_Click" Tag="Cpu:#00E5FF"/>
+                                            <Button Content="Verde" Height="26" Margin="4,0,0,0" Padding="8,0" Click="SetColorPreset_Click" Tag="Cpu:#00FF66"/>
+                                            <Button Content="Branco" Height="26" Margin="4,0,0,0" Padding="8,0" Click="SetColorPreset_Click" Tag="Cpu:#FFFFFF"/>
+                                        </StackPanel>
+
+                                        <CheckBox x:Name="CpuBarCheck" Content="Exibir Barra de Progresso" IsChecked="True" 
+                                                  Checked="LayoutSettingChanged" Unchecked="LayoutSettingChanged" Margin="0,4,0,6"/>
+                                        <Grid Margin="0,0,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Barra X:" VerticalAlignment="Center" FontSize="11"/>
+                                            <Slider x:Name="CpuBarXSlider" Grid.Column="1" Minimum="0" Maximum="30" Value="17" ValueChanged="LayoutSettingChanged" Margin="4,0,10,0"/>
+                                            <TextBlock Grid.Column="2" Text="Barra Y:" VerticalAlignment="Center" FontSize="11"/>
+                                            <Slider x:Name="CpuBarYSlider" Grid.Column="3" Minimum="0" Maximum="30" Value="3" ValueChanged="LayoutSettingChanged" Margin="4,0,0,0"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Expander>
+
+                                <!-- GPU Config Section -->
+                                <Expander Header="CONFIGURAÇÃO DA GPU" IsExpanded="False" Background="#20202E" Margin="0,0,0,12">
+                                    <StackPanel Margin="12">
+                                        <CheckBox x:Name="GpuEnabledCheck" Content="Exibir GPU no Display" IsChecked="True" 
+                                                  Checked="LayoutSettingChanged" Unchecked="LayoutSettingChanged" Margin="0,0,0,8"/>
+                                        
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Pos X:" VerticalAlignment="Center" FontSize="11"/>
+                                            <Slider x:Name="GpuXSlider" Grid.Column="1" Minimum="0" Maximum="30" Value="1" ValueChanged="LayoutSettingChanged" Margin="4,0,10,0"/>
+                                            <TextBlock Grid.Column="2" Text="Pos Y:" VerticalAlignment="Center" FontSize="11"/>
+                                            <Slider x:Name="GpuYSlider" Grid.Column="3" Minimum="0" Maximum="30" Value="9" ValueChanged="LayoutSettingChanged" Margin="4,0,0,0"/>
+                                        </Grid>
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                            <TextBlock Text="Cor:" VerticalAlignment="Center" FontSize="11" Margin="0,0,8,0"/>
+                                            <TextBox x:Name="GpuColorText" Text="#76FF03" Width="90" Height="30" TextChanged="LayoutSettingChanged"/>
+                                            <Button Content="Lime" Height="26" Margin="6,0,0,0" Padding="8,0" Click="SetColorPreset_Click" Tag="Gpu:#76FF03"/>
+                                            <Button Content="Cyan" Height="26" Margin="4,0,0,0" Padding="8,0" Click="SetColorPreset_Click" Tag="Gpu:#00E5FF"/>
+                                        </StackPanel>
+
+                                        <CheckBox x:Name="GpuBarCheck" Content="Exibir Barra de Progresso" IsChecked="True" 
+                                                  Checked="LayoutSettingChanged" Unchecked="LayoutSettingChanged" Margin="0,4,0,6"/>
+                                        <Grid Margin="0,0,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Barra X:" VerticalAlignment="Center" FontSize="11"/>
+                                            <Slider x:Name="GpuBarXSlider" Grid.Column="1" Minimum="0" Maximum="30" Value="17" ValueChanged="LayoutSettingChanged" Margin="4,0,10,0"/>
+                                            <TextBlock Grid.Column="2" Text="Barra Y:" VerticalAlignment="Center" FontSize="11"/>
+                                            <Slider x:Name="GpuBarYSlider" Grid.Column="3" Minimum="0" Maximum="30" Value="10" ValueChanged="LayoutSettingChanged" Margin="4,0,0,0"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Expander>
+
+                                <!-- RAM Config Section -->
+                                <Expander Header="CONFIGURAÇÃO DA MEMÓRIA RAM" IsExpanded="False" Background="#20202E" Margin="0,0,0,12">
+                                    <StackPanel Margin="12">
+                                        <CheckBox x:Name="RamEnabledCheck" Content="Exibir RAM no Display" IsChecked="True" 
+                                                  Checked="LayoutSettingChanged" Unchecked="LayoutSettingChanged" Margin="0,0,0,8"/>
+                                        
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Pos X:" VerticalAlignment="Center" FontSize="11"/>
+                                            <Slider x:Name="RamXSlider" Grid.Column="1" Minimum="0" Maximum="30" Value="1" ValueChanged="LayoutSettingChanged" Margin="4,0,10,0"/>
+                                            <TextBlock Grid.Column="2" Text="Pos Y:" VerticalAlignment="Center" FontSize="11"/>
+                                            <Slider x:Name="RamYSlider" Grid.Column="3" Minimum="0" Maximum="30" Value="16" ValueChanged="LayoutSettingChanged" Margin="4,0,0,0"/>
+                                        </Grid>
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                            <TextBlock Text="Cor:" VerticalAlignment="Center" FontSize="11" Margin="0,0,8,0"/>
+                                            <TextBox x:Name="RamColorText" Text="#FFD600" Width="90" Height="30" TextChanged="LayoutSettingChanged"/>
+                                            <Button Content="Amarelo" Height="26" Margin="6,0,0,0" Padding="8,0" Click="SetColorPreset_Click" Tag="Ram:#FFD600"/>
+                                            <Button Content="Laranja" Height="26" Margin="4,0,0,0" Padding="8,0" Click="SetColorPreset_Click" Tag="Ram:#FF9100"/>
+                                        </StackPanel>
+
+                                        <CheckBox x:Name="RamBarCheck" Content="Exibir Barra de Progresso" IsChecked="True" 
+                                                  Checked="LayoutSettingChanged" Unchecked="LayoutSettingChanged" Margin="0,4,0,6"/>
+                                        <Grid Margin="0,0,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Barra X:" VerticalAlignment="Center" FontSize="11"/>
+                                            <Slider x:Name="RamBarXSlider" Grid.Column="1" Minimum="0" Maximum="30" Value="17" ValueChanged="LayoutSettingChanged" Margin="4,0,10,0"/>
+                                            <TextBlock Grid.Column="2" Text="Barra Y:" VerticalAlignment="Center" FontSize="11"/>
+                                            <Slider x:Name="RamBarYSlider" Grid.Column="3" Minimum="0" Maximum="30" Value="17" ValueChanged="LayoutSettingChanged" Margin="4,0,0,0"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Expander>
+
+                                <!-- Temperatura Config Section -->
+                                <Expander Header="CONFIGURAÇÃO DE TEMPERATURA" IsExpanded="False" Background="#20202E" Margin="0,0,0,12">
+                                    <StackPanel Margin="12">
+                                        <CheckBox x:Name="TempEnabledCheck" Content="Exibir Temperatura no Display" IsChecked="True" 
+                                                  Checked="LayoutSettingChanged" Unchecked="LayoutSettingChanged" Margin="0,0,0,8"/>
+                                        
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Pos X:" VerticalAlignment="Center" FontSize="11"/>
+                                            <Slider x:Name="TempXSlider" Grid.Column="1" Minimum="0" Maximum="30" Value="1" ValueChanged="LayoutSettingChanged" Margin="4,0,10,0"/>
+                                            <TextBlock Grid.Column="2" Text="Pos Y:" VerticalAlignment="Center" FontSize="11"/>
+                                            <Slider x:Name="TempYSlider" Grid.Column="3" Minimum="0" Maximum="30" Value="24" ValueChanged="LayoutSettingChanged" Margin="4,0,0,0"/>
+                                        </Grid>
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                            <TextBlock Text="Cor:" VerticalAlignment="Center" FontSize="11" Margin="0,0,8,0"/>
+                                            <TextBox x:Name="TempColorText" Text="#FF3D00" Width="90" Height="30" TextChanged="LayoutSettingChanged"/>
+                                            <Button Content="Vermelho" Height="26" Margin="6,0,0,0" Padding="8,0" Click="SetColorPreset_Click" Tag="Temp:#FF3D00"/>
+                                            <Button Content="Magenta" Height="26" Margin="4,0,0,0" Padding="8,0" Click="SetColorPreset_Click" Tag="Temp:#FF0055"/>
+                                        </StackPanel>
+
+                                        <CheckBox x:Name="TempBarCheck" Content="Exibir Barra de Progresso" IsChecked="True" 
+                                                  Checked="LayoutSettingChanged" Unchecked="LayoutSettingChanged" Margin="0,4,0,6"/>
+                                        <Grid Margin="0,0,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Barra X:" VerticalAlignment="Center" FontSize="11"/>
+                                            <Slider x:Name="TempBarXSlider" Grid.Column="1" Minimum="0" Maximum="30" Value="17" ValueChanged="LayoutSettingChanged" Margin="4,0,10,0"/>
+                                            <TextBlock Grid.Column="2" Text="Barra Y:" VerticalAlignment="Center" FontSize="11"/>
+                                            <Slider x:Name="TempBarYSlider" Grid.Column="3" Minimum="0" Maximum="30" Value="25" ValueChanged="LayoutSettingChanged" Margin="4,0,0,0"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Expander>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- TAB 2: RELÓGIO & EDITOR -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🕒" FontSize="16" Margin="0,0,10,0"/>
+                        <TextBlock Text="Relógio &amp; Editor" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <Grid Margin="20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="380"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left: Clock Preview -->
+                    <Border Grid.Column="0" Background="#181822" CornerRadius="12" Padding="20" BorderBrush="#252538" BorderThickness="1" Margin="0,0,16,0">
+                        <StackPanel>
+                            <TextBlock Text="PRÉVIA DO RELÓGIO 32x32" FontSize="12" FontWeight="Bold" Foreground="#888899" Margin="0,0,0,12"/>
+
+                            <Border Width="288" Height="288" Background="#000000" CornerRadius="8" 
+                                    BorderBrush="#33334D" BorderThickness="2" HorizontalAlignment="Center">
+                                <Image x:Name="ClockPreviewImage" Width="288" Height="288" 
+                                       RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                            </Border>
+
+                            <Button x:Name="ToggleClockStreamBtn" Content="▶ Transmitir Relógio ao Display" 
+                                    Height="40" Background="#00E5FF" Foreground="#0A0A10" FontWeight="Bold"
+                                    Click="ToggleClockStreamBtn_Click" Margin="0,20,0,10"/>
+
+                            <Button Content="Sincronizar Hora do Hardware" Click="SyncHardwareClock_Click" 
+                                    Style="{StaticResource MaterialDesignOutlinedButton}" BorderBrush="#B388FF" Foreground="#B388FF"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Right: Clock Layout Editor -->
+                    <Border Grid.Column="1" Background="#181822" CornerRadius="12" Padding="20" BorderBrush="#252538" BorderThickness="1">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <TextBlock Text="EDITOR DE ESTILO &amp; POSIÇÃO DO RELÓGIO" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,4"/>
+                                <TextBlock Text="Personalize estilo de fonte, cores das horas, minutos e data." FontSize="11" Foreground="#888899" Margin="0,0,0,16"/>
+
+                                <!-- Estilo de Fonte -->
+                                <Border Background="#20202E" CornerRadius="8" Padding="14" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="Estilo da Fonte do Relógio:" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <RadioButton x:Name="ClockFontRetroRadio" Content="Retrô 3x5 Pixel" IsChecked="True" 
+                                                         Checked="ClockSettingChanged" Margin="0,0,16,0"/>
+                                            <RadioButton x:Name="ClockFontBigRadio" Content="Digital Grande 5x7" 
+                                                         Checked="ClockSettingChanged"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Formato & Opções -->
+                                <Border Background="#20202E" CornerRadius="8" Padding="14" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="Formato &amp; Elementos:" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                        <CheckBox x:Name="Clock24hCheck" Content="Formato 24 Horas" IsChecked="True" 
+                                                  Checked="ClockSettingChanged" Unchecked="ClockSettingChanged" Margin="0,0,0,6"/>
+                                        <CheckBox x:Name="ClockSecondsCheck" Content="Exibir Segundos" IsChecked="False" 
+                                                  Checked="ClockSettingChanged" Unchecked="ClockSettingChanged" Margin="0,0,0,6"/>
+                                        <CheckBox x:Name="ClockDateCheck" Content="Exibir Data (Dia/Mês)" IsChecked="True" 
+                                                  Checked="ClockSettingChanged" Unchecked="ClockSettingChanged"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Posições -->
+                                <Border Background="#20202E" CornerRadius="8" Padding="14" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="Posicionamento no Display (X / Y):" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                        
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Horário X:" VerticalAlignment="Center" FontSize="11"/>
+                                            <Slider x:Name="ClockTimeXSlider" Grid.Column="1" Minimum="0" Maximum="26" Value="4" ValueChanged="ClockSettingChanged" Margin="4,0,10,0"/>
+                                            <TextBlock Grid.Column="2" Text="Horário Y:" VerticalAlignment="Center" FontSize="11"/>
+                                            <Slider x:Name="ClockTimeYSlider" Grid.Column="3" Minimum="0" Maximum="26" Value="6" ValueChanged="ClockSettingChanged" Margin="4,0,0,0"/>
+                                        </Grid>
+
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Data X:" VerticalAlignment="Center" FontSize="11"/>
+                                            <Slider x:Name="ClockDateXSlider" Grid.Column="1" Minimum="0" Maximum="26" Value="6" ValueChanged="ClockSettingChanged" Margin="4,0,10,0"/>
+                                            <TextBlock Grid.Column="2" Text="Data Y:" VerticalAlignment="Center" FontSize="11"/>
+                                            <Slider x:Name="ClockDateYSlider" Grid.Column="3" Minimum="0" Maximum="26" Value="18" ValueChanged="ClockSettingChanged" Margin="4,0,0,0"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Cores -->
+                                <Border Background="#20202E" CornerRadius="8" Padding="14" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="Cores dos Elementos:" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                            <TextBlock Text="Cor dos Números:" Width="120" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBox x:Name="ClockTimeColorText" Text="#FFFFFF" Width="90" Height="30" TextChanged="ClockSettingChanged"/>
+                                            <Button Content="Branco" Height="26" Margin="6,0,0,0" Padding="8,0" Click="SetClockColor_Click" Tag="Time:#FFFFFF"/>
+                                            <Button Content="Cyan" Height="26" Margin="4,0,0,0" Padding="8,0" Click="SetClockColor_Click" Tag="Time:#00E5FF"/>
+                                            <Button Content="Verde" Height="26" Margin="4,0,0,0" Padding="8,0" Click="SetClockColor_Click" Tag="Time:#76FF03"/>
+                                        </StackPanel>
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                            <TextBlock Text="Cor dos Pontos (:):" Width="120" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBox x:Name="ClockColonColorText" Text="#00E5FF" Width="90" Height="30" TextChanged="ClockSettingChanged"/>
+                                            <Button Content="Cyan" Height="26" Margin="6,0,0,0" Padding="8,0" Click="SetClockColor_Click" Tag="Colon:#00E5FF"/>
+                                            <Button Content="Amarelo" Height="26" Margin="4,0,0,0" Padding="8,0" Click="SetClockColor_Click" Tag="Colon:#FFD600"/>
+                                        </StackPanel>
+
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="Cor da Data:" Width="120" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBox x:Name="ClockDateColorText" Text="#FFD600" Width="90" Height="30" TextChanged="ClockSettingChanged"/>
+                                            <Button Content="Amarelo" Height="26" Margin="6,0,0,0" Padding="8,0" Click="SetClockColor_Click" Tag="Date:#FFD600"/>
+                                            <Button Content="Magenta" Height="26" Margin="4,0,0,0" Padding="8,0" Click="SetClockColor_Click" Tag="Date:#FF007F"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- TAB 3: ESTÚDIO DIY / PIXEL ART -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🎨" FontSize="16" Margin="0,0,10,0"/>
+                        <TextBlock Text="Estúdio DIY Pixel Art" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <Grid Margin="20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Interactive 32x32 Grid Canvas -->
+                    <Border Grid.Column="0" Background="#181822" CornerRadius="12" Padding="20" BorderBrush="#252538" BorderThickness="1" Margin="0,0,16,0">
+                        <StackPanel>
+                            <TextBlock Text="TELA DE PINTURA 32x32 (CLIQUE &amp; ARRASTE)" FontSize="12" FontWeight="Bold" Foreground="#888899" Margin="0,0,0,12"/>
+                            
+                            <!-- Drawing Canvas Container -->
+                            <Border Width="384" Height="384" Background="#000000" CornerRadius="8" BorderBrush="#33334D" BorderThickness="2">
+                                <Canvas x:Name="DrawingCanvas" Width="384" Height="384" Background="Transparent"
+                                        MouseDown="DrawingCanvas_MouseDown" MouseMove="DrawingCanvas_MouseMove"/>
+                            </Border>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,16,0,0" HorizontalAlignment="Center">
+                                <Button Content="🚀 Enviar ao Display" Height="40" Background="#00E5FF" Foreground="#0A0A10" FontWeight="Bold"
+                                        Click="SendDrawingToDisplay_Click" Margin="0,0,10,0"/>
+                                <Button Content="🗑 Limpar Tela" Height="40" Style="{StaticResource MaterialDesignOutlinedButton}"
+                                        BorderBrush="#FF1744" Foreground="#FF1744" Click="ClearDrawingCanvas_Click"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Drawing Tools & Palette -->
+                    <Border Grid.Column="1" Background="#181822" CornerRadius="12" Padding="20" BorderBrush="#252538" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="FERRAMENTAS &amp; PALETA DE CORES" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,16"/>
+
+                            <!-- Tool Selector -->
+                            <TextBlock Text="Ferramenta Ativa:" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                                <RadioButton x:Name="ToolPencilRadio" Content="✏️ Lápis" IsChecked="True" Margin="0,0,12,0"/>
+                                <RadioButton x:Name="ToolEraserRadio" Content="🧹 Borracha" Margin="0,0,12,0"/>
+                                <RadioButton x:Name="ToolFillRadio" Content="🪣 Preenchimento (Balde)"/>
+                            </StackPanel>
+
+                            <!-- Color Palette -->
+                            <TextBlock Text="Cores Rápidas:" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <WrapPanel x:Name="PalettePanel" Margin="0,0,0,16"/>
+
+                            <!-- Active Color Hex Box -->
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                                <TextBlock Text="Cor Atual:" VerticalAlignment="Center" FontSize="12" Margin="0,0,8,0"/>
+                                <Border x:Name="ActiveColorPreview" Width="26" Height="26" CornerRadius="4" Background="#00E5FF" Margin="0,0,8,0"/>
+                                <TextBox x:Name="ActiveColorHexText" Text="#00E5FF" Width="100" Height="30" TextChanged="ActiveColorHexText_TextChanged"/>
+                            </StackPanel>
+
+                            <TextBlock Text="💡 Dica: Você também pode carregar presets da Galeria e editá-los livremente aqui!" 
+                                       FontSize="11" Foreground="#888899" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- TAB 4: GALERIA DE PRESETS -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🖼️" FontSize="16" Margin="0,0,10,0"/>
+                        <TextBlock Text="Galeria de Presets" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <Grid Margin="20">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,16">
+                        <TextBlock Text="GALERIA DE PIXEL ART EXCLUSIVA" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF"/>
+                        <TextBlock Text="Clique em qualquer obra de pixel art para projetá-la instantaneamente no display ou abri-la no estúdio DIY." FontSize="12" Foreground="#888899"/>
+                    </StackPanel>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <WrapPanel x:Name="PresetWrapPanel"/>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
+
+            <!-- TAB 5: LETREIRO & TEXTO -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="💬" FontSize="16" Margin="0,0,10,0"/>
+                        <TextBlock Text="Letreiro &amp; Mensagem" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <Grid Margin="20">
+                    <Border Background="#181822" CornerRadius="12" Padding="24" BorderBrush="#252538" BorderThickness="1" MaxWidth="600" HorizontalAlignment="Left">
+                        <StackPanel>
+                            <TextBlock Text="LETREIRO DIGITAL DE TEXTO" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,4"/>
+                            <TextBlock Text="Envie mensagens personalizadas para o display 32x32." FontSize="11" Foreground="#888899" Margin="0,0,0,20"/>
+
+                            <TextBlock Text="Mensagem de Texto:" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                            <TextBox x:Name="TextMessageInput" Text="BEM VINDO" Height="40" FontSize="14" Foreground="#FFFFFF" 
+                                     Background="#20202E" Padding="10,8" Margin="0,0,0,16"/>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                                <TextBlock Text="Cor do Texto:" VerticalAlignment="Center" FontSize="12" Margin="0,0,8,0"/>
+                                <TextBox x:Name="TextColorInput" Text="#00E5FF" Width="90" Height="30" Margin="0,0,8,0"/>
+                                <Button Content="Cyan" Height="26" Margin="2,0" Padding="8,0" Click="SetTextColor_Click" Tag="#00E5FF"/>
+                                <Button Content="Amarelo" Height="26" Margin="2,0" Padding="8,0" Click="SetTextColor_Click" Tag="#FFD600"/>
+                                <Button Content="Verde" Height="26" Margin="2,0" Padding="8,0" Click="SetTextColor_Click" Tag="#76FF03"/>
+                            </StackPanel>
+
+                            <Button Content="🚀 Enviar Mensagem para o Display" Height="42" 
+                                    Background="#00E5FF" Foreground="#0A0A10" FontWeight="Bold"
+                                    Click="SendTextMessage_Click"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- TAB 6: PLACAR & EXTRAS -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🎮" FontSize="16" Margin="0,0,10,0"/>
+                        <TextBlock Text="Placar &amp; Extras" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <Grid Margin="20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="380"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Scoreboard -->
+                    <Border Grid.Column="0" Background="#181822" CornerRadius="12" Padding="20" BorderBrush="#252538" BorderThickness="1" Margin="0,0,16,0">
+                        <StackPanel>
+                            <TextBlock Text="PLACAR ESPORTIVO / JOGOS" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,16"/>
+
+                            <Grid Margin="0,0,0,20">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Team 1 -->
+                                <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                                    <TextBlock Text="TIME AZUL" FontSize="12" FontWeight="Bold" Foreground="#00E5FF" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                                    <TextBlock x:Name="Score1Label" Text="0" FontSize="36" FontWeight="Black" Foreground="#FFFFFF" HorizontalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,8,0,0">
+                                        <Button Content="-" Width="36" Height="36" Click="Score1Minus_Click" Margin="0,0,6,0"/>
+                                        <Button Content="+" Width="36" Height="36" Click="Score1Plus_Click"/>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <TextBlock Grid.Column="1" Text="VS" FontSize="18" FontWeight="Black" Foreground="#555566" VerticalAlignment="Center" Margin="12,0"/>
+
+                                <!-- Team 2 -->
+                                <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                                    <TextBlock Text="TIME VERMELHO" FontSize="12" FontWeight="Bold" Foreground="#FF1744" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                                    <TextBlock x:Name="Score2Label" Text="0" FontSize="36" FontWeight="Black" Foreground="#FFFFFF" HorizontalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,8,0,0">
+                                        <Button Content="-" Width="36" Height="36" Click="Score2Minus_Click" Margin="0,0,6,0"/>
+                                        <Button Content="+" Width="36" Height="36" Click="Score2Plus_Click"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+
+                            <Button Content="Atualizar Placar no Display" Height="38" Background="#00E5FF" Foreground="#0A0A10" FontWeight="Bold"
+                                    Click="UpdateScoreboard_Click" Margin="0,0,0,10"/>
+                            <Button Content="Zerar Placar" Style="{StaticResource MaterialDesignOutlinedButton}" BorderBrush="#555566" Foreground="#AAAAAA"
+                                    Click="ResetScoreboard_Click"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Fullscreen Color & Reset -->
+                    <Border Grid.Column="1" Background="#181822" CornerRadius="12" Padding="20" BorderBrush="#252538" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="LANTERNA &amp; COR DE TELA INTEIRA" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,16"/>
+
+                            <WrapPanel Margin="0,0,0,20">
+                                <Button Content="Branco" Height="36" Margin="4" Click="FillColor_Click" Tag="#FFFFFF"/>
+                                <Button Content="Vermelho" Height="36" Margin="4" Click="FillColor_Click" Tag="#FF0000"/>
+                                <Button Content="Verde" Height="36" Margin="4" Click="FillColor_Click" Tag="#00FF00"/>
+                                <Button Content="Azul" Height="36" Margin="4" Click="FillColor_Click" Tag="#0000FF"/>
+                                <Button Content="Cyan" Height="36" Margin="4" Click="FillColor_Click" Tag="#00FFFF"/>
+                                <Button Content="Amarelo" Height="36" Margin="4" Click="FillColor_Click" Tag="#FFFF00"/>
+                                <Button Content="Roxo" Height="36" Margin="4" Click="FillColor_Click" Tag="#800080"/>
+                                <Button Content="Desligar/Preto" Height="36" Margin="4" Click="FillColor_Click" Tag="#000000"/>
+                            </WrapPanel>
+
+                            <Separator Background="#28283C" Margin="0,0,0,20"/>
+
+                            <TextBlock Text="MANUTENÇÃO DO DISPOSITIVO" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,12"/>
+                            <Button Content="Reiniciar / Reset de Fábrica do Display" Height="38" 
+                                    Style="{StaticResource MaterialDesignOutlinedButton}" BorderBrush="#FF1744" Foreground="#FF1744"
+                                    Click="ResetDevice_Click"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <!-- FOOTER BAR -->
+        <Border Grid.Row="2" Background="#14141E" BorderBrush="#20202E" BorderThickness="0,1,0,0" Padding="16,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="FooterLogText" Grid.Column="0" Text="Pronto. Conecte ao seu display para iniciar." FontSize="11" Foreground="#777788" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="iDotMatrix Pro © 2026 • 0% CPU Idle • BLE WinRT" FontSize="11" Foreground="#444455" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
